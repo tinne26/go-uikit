@@ -11,15 +11,22 @@ type Context struct {
 	Theme *Theme
 	Text  *etxt.Renderer
 	IME   IMEBridge // optional (nil on desktop)
+	Scale Scale     // kept for apps, but input + layout are in logical pixels
 
 	widgets []Widget
 	focus   int // -1 means none
 
-	// Mouse state (screen pixels)
-	mouseX, mouseY int
-	mouseDown      bool
-	mouseJustDown  bool
-	mouseJustUp    bool
+	// Pointer state in *logical pixels* (Ebiten's standard coordinate space).
+	ptrX, ptrY  int
+	ptrDown     bool
+	ptrJustDown bool
+	ptrJustUp   bool
+	ptrIsTouch  bool
+	activeTouch ebiten.TouchID
+	hasTouch    bool
+
+	// Touch tracking (robust across Ebiten versions/platforms)
+	prevTouches map[ebiten.TouchID]struct{}
 }
 
 func NewContext(theme *Theme, renderer *etxt.Renderer, ime IMEBridge) *Context {
@@ -27,12 +34,17 @@ func NewContext(theme *Theme, renderer *etxt.Renderer, ime IMEBridge) *Context {
 	renderer.SetFont(theme.Font)
 	renderer.SetSize(float64(theme.FontPx))
 	return &Context{
-		Theme: theme,
-		Text:  renderer,
-		IME:   ime,
-		focus: -1,
+		Theme:       theme,
+		Text:        renderer,
+		IME:         ime,
+		Scale:       Scale{Device: 1, UI: 1},
+		focus:       -1,
+		prevTouches: map[ebiten.TouchID]struct{}{},
 	}
 }
+
+// SetScale stores a scale value for the app. The default Context input space is logical pixels.
+func (c *Context) SetScale(s Scale) { c.Scale = s }
 
 // SetIMEBridge sets/updates the IME bridge at runtime.
 // It also synchronizes the IME visibility with the currently focused widget.
@@ -167,14 +179,67 @@ func (c *Context) focusPrev() {
 	}
 }
 
-func (c *Context) Update() {
-	// Snapshot mouse state
-	c.mouseX, c.mouseY = ebiten.CursorPosition()
-	c.mouseDown = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-	c.mouseJustDown = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	c.mouseJustUp = inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
+func (c *Context) readPointerSnapshot() {
+	c.ptrJustDown = false
+	c.ptrJustUp = false
+	c.ptrIsTouch = false
 
-	// Keyboard focus traversal
+	// Touch tracking (prefer this on mobile; CursorPosition is always (0,0) there).
+	touches := ebiten.TouchIDs()
+	curr := map[ebiten.TouchID]struct{}{}
+	for _, id := range touches {
+		curr[id] = struct{}{}
+	}
+
+	// Determine transitions
+	var justPressed []ebiten.TouchID
+	var justReleased []ebiten.TouchID
+	for id := range curr {
+		if _, ok := c.prevTouches[id]; !ok {
+			justPressed = append(justPressed, id)
+		}
+	}
+	for id := range c.prevTouches {
+		if _, ok := curr[id]; !ok {
+			justReleased = append(justReleased, id)
+		}
+	}
+	c.prevTouches = curr
+
+	// Acquire an active touch when pressed
+	if !c.hasTouch && len(justPressed) > 0 {
+		c.activeTouch = justPressed[0]
+		c.hasTouch = true
+		c.ptrJustDown = true
+	}
+
+	if c.hasTouch {
+		// Is it still down?
+		if _, ok := curr[c.activeTouch]; ok {
+			c.ptrDown = true
+			c.ptrIsTouch = true
+			c.ptrX, c.ptrY = ebiten.TouchPosition(c.activeTouch)
+		} else {
+			// Released this tick?
+			c.ptrDown = false
+			c.ptrIsTouch = true
+			c.ptrJustUp = true
+			c.hasTouch = false
+		}
+		return
+	}
+
+	// Mouse fallback (desktop)
+	c.ptrX, c.ptrY = ebiten.CursorPosition()
+	c.ptrDown = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	c.ptrJustDown = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	c.ptrJustUp = inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
+}
+
+func (c *Context) Update() {
+	c.readPointerSnapshot()
+
+	// Keyboard focus traversal (desktop)
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
 			c.focusPrev()
@@ -183,43 +248,39 @@ func (c *Context) Update() {
 		}
 	}
 
-	// Widget updates + basic event routing
 	for _, w := range c.widgets {
 		b := w.Base()
 		if !b.Visible {
 			continue
 		}
 
-		inside := b.Rect.Contains(c.mouseX, c.mouseY)
-		b.hovered = inside && b.Enabled
+		inside := b.Rect.Contains(c.ptrX, c.ptrY)
 
-		// Pointer down
-		if c.mouseJustDown && inside && b.Enabled {
+		// Hover only makes sense for mouse
+		b.hovered = inside && b.Enabled && !c.ptrIsTouch
+
+		if c.ptrJustDown && inside && b.Enabled {
 			b.pressed = true
-			c.dispatch(w, Event{Type: EventPointerDown, X: c.mouseX, Y: c.mouseY})
+			c.dispatch(w, Event{Type: EventPointerDown, X: c.ptrX, Y: c.ptrY})
 			if w.Focusable() {
 				c.SetFocus(w)
 			}
 		}
 
-		// Focus flag
 		b.focused = (c.Focused() == w) && b.Enabled && w.Focusable()
 
-		// Let widgets update (legacy path)
 		w.Update(c)
 
-		// Pointer up + click
-		if c.mouseJustUp {
+		if c.ptrJustUp {
 			if b.pressed {
-				c.dispatch(w, Event{Type: EventPointerUp, X: c.mouseX, Y: c.mouseY})
+				c.dispatch(w, Event{Type: EventPointerUp, X: c.ptrX, Y: c.ptrY})
 				if inside && b.Enabled {
-					c.dispatch(w, Event{Type: EventClick, X: c.mouseX, Y: c.mouseY})
+					c.dispatch(w, Event{Type: EventClick, X: c.ptrX, Y: c.ptrY})
 				}
 			}
 			b.pressed = false
 		}
 
-		// Recompute focus flag
 		b.focused = (c.Focused() == w) && b.Enabled && w.Focusable()
 	}
 }

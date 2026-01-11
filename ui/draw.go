@@ -113,3 +113,21 @@ func drawFocusRing(dst *ebiten.Image, r Rect, radius int, gap int, w int, col co
 func clampInt(v, lo, hi int) int {
 	return int(math.Max(float64(lo), math.Min(float64(hi), float64(v))))
 }
+
+func drawErrorText(ctx *Context, dst *ebiten.Image, r Rect, msg string) {
+	if msg == "" || r.W <= 0 || r.H <= 0 {
+		return
+	}
+	met, _ := MetricsPx(ctx.Theme.Font, ctx.Theme.ErrorFontPx)
+	baselineY := r.Y + met.Ascent
+
+	// Temporarily switch font size to error size.
+	ctx.Text.SetAlign(0)
+	ctx.Text.SetSize(float64(ctx.Theme.ErrorFontPx))
+	ctx.Text.SetColor(ctx.Theme.ErrorText)
+	ctx.Text.Draw(dst, msg, r.X, baselineY)
+
+	// Restore default size/color for subsequent draws.
+	ctx.Text.SetSize(float64(ctx.Theme.FontPx))
+	ctx.Text.SetColor(ctx.Theme.Text)
+}

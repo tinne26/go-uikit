@@ -139,7 +139,7 @@ func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
 		t.base.SetRectByWidth(ctx.Theme, t.base.Rect.X, t.base.Rect.Y, t.base.Rect.W)
 	}
 
-	r := t.base.Rect
+	r := t.base.ControlRect(ctx.Theme)
 
 	// Surface
 	bg := ctx.Theme.Surface
@@ -153,7 +153,11 @@ func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
 	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
 
 	// Border
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, ctx.Theme.Border)
+	borderCol := ctx.Theme.Border
+	if t.base.Invalid {
+		borderCol = ctx.Theme.ErrorBorder
+	}
+	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
 
 	// Focus ring
 	if t.base.focused && t.base.Enabled {
@@ -203,5 +207,10 @@ func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
 			}
 			vector.DrawFilledRect(dst, float32(cx), float32(cy), float32(t.CaretWidthPx), float32(caretH), ctx.Theme.Caret, false)
 		}
+	}
+
+	err := t.base.ErrorRect(ctx.Theme)
+	if t.base.Invalid {
+		drawErrorText(ctx, dst, err, t.base.ErrorText)
 	}
 }

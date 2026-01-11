@@ -1,5 +1,7 @@
 package ui
 
+import "image"
+
 // Rect is an integer rectangle in screen pixels.
 type Rect struct {
 	X, Y, W, H int
@@ -22,4 +24,9 @@ func (r Rect) Inset(pxX, pxY int) Rect {
 
 func (r Rect) Contains(pxX, pxY int) bool {
 	return pxX >= r.X && pxX < r.Right() && pxY >= r.Y && pxY < r.Bottom()
+}
+
+// ImageRect converts this Rect to an image.Rectangle (useful for clipping via SubImage).
+func (r Rect) ImageRect() image.Rectangle {
+	return image.Rect(r.X, r.Y, r.Right(), r.Bottom())
 }

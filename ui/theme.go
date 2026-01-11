@@ -30,6 +30,10 @@ type Theme struct {
 
 	CheckSize int // checkbox square size
 
+	// Validation
+	ErrorFontPx int
+	ErrorGap    int
+
 	// Colors
 	Text           color.RGBA
 	MutedText      color.RGBA
@@ -40,6 +44,8 @@ type Theme struct {
 	Border         color.RGBA
 	Focus          color.RGBA
 	Disabled       color.RGBA
+	ErrorText      color.RGBA
+	ErrorBorder    color.RGBA
 
 	Caret color.RGBA
 }
@@ -128,6 +134,16 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 	// Keep it visually balanced
 	checkSize = int(math.Round(float64(checkSize) * 0.92))
 
+	// Validation
+	errorFontPx := int(math.Round(float64(fontPx) * 0.85))
+	if errorFontPx < 10 {
+		errorFontPx = 10
+	}
+	errorGap := int(math.Round(float64(controlH) * 0.15))
+	if errorGap < 4 {
+		errorGap = 4
+	}
+
 	return &Theme{
 		Font:     font,
 		FontPx:   fontPx,
@@ -146,6 +162,9 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 
 		CheckSize: checkSize,
 
+		ErrorFontPx: errorFontPx,
+		ErrorGap:    errorGap,
+
 		Text:           color.RGBA{235, 238, 242, 255},
 		MutedText:      color.RGBA{170, 176, 186, 255},
 		Bg:             color.RGBA{20, 22, 26, 255},
@@ -155,6 +174,8 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 		Border:         color.RGBA{76, 84, 98, 255},
 		Focus:          color.RGBA{120, 170, 255, 255},
 		Disabled:       color.RGBA{90, 96, 106, 255},
+		ErrorText:      color.RGBA{235, 110, 110, 255},
+		ErrorBorder:    color.RGBA{235, 110, 110, 255},
 
 		Caret: color.RGBA{235, 238, 242, 255},
 	}

@@ -3,7 +3,6 @@ package demo
 import (
 	"fmt"
 	"image/color"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -16,21 +15,21 @@ import (
 
 type Game struct {
 	ime ui.IMEBridge
-	// logical window size from Layout inputs
+
 	winW, winH int
 
-	// scale system (device * ui)
-	scale ui.Scale
-
+	scale    ui.Scale
 	renderer *etxt.Renderer
 	theme    *ui.Theme
 	ctx      *ui.Context
 
-	// Widgets (showcase)
 	title     *ui.Label
 	txtA      *ui.TextInput
 	txtB      *ui.TextInput
 	txtDis    *ui.TextInput
+	ta        *ui.TextArea
+	sel       *ui.Select
+	box       *ui.Container
 	chkA      *ui.Checkbox
 	chkDis    *ui.Checkbox
 	btnA      *ui.Button
@@ -47,7 +46,6 @@ func mustFont() *sfnt.Font {
 	return f
 }
 
-// New returns an embeddable ebiten.Game.
 func New() *Game { return &Game{} }
 
 // SetIMEBridge can be called from mobile bindings to enable keyboard show/hide.
@@ -70,27 +68,34 @@ func (g *Game) initOnce() {
 	f := mustFont()
 	g.renderer.SetFont(f)
 
-	// Theme is defined in *physical pixels*. We render on a physical canvas for crisp UI.
+	// Base theme in logical pixels. Actual rendering scale is handled by renderer.SetScale.
 	g.theme = ui.NewTheme(f, 20)
 
-	// Desktop demo: IME bridge nil
 	g.ctx = ui.NewContext(g.theme, g.renderer, g.ime)
 
-	// Widgets
 	g.title = ui.NewLabel("UI Kit Demo — consistent proportions (Theme-driven)")
 	g.focusInfo = ui.NewLabel("")
 
 	g.txtA = ui.NewTextInput("Type here…")
 	g.txtA.SetDefault("Hello Ebiten UI")
-	g.txtA.RestoreDefaultOnBlur = false
 
 	g.txtB = ui.NewTextInput("Search…")
-	g.txtB.SetText("")
-	g.txtB.DefaultText = ""
 
 	g.txtDis = ui.NewTextInput("Disabled input")
 	g.txtDis.SetDefault("Disabled value")
 	g.txtDis.SetEnabled(false)
+
+	g.ta = ui.NewTextArea("Multi-line…")
+	g.ta.SetText("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7")
+	g.ta.SetLines(5)
+
+	g.sel = ui.NewSelect([]string{"Option A", "Option B", "Option C", "Option D", "Option E", "Option F"})
+
+	g.box = ui.NewContainer()
+	g.box.OnDraw = func(ctx *ui.Context, dst *ebiten.Image, content ui.Rect) {
+		ctx.Text.SetColor(ctx.Theme.MutedText)
+		ctx.Text.Draw(dst, "Custom content container", content.X, content.Y+content.H/2)
+	}
 
 	g.chkA = ui.NewCheckbox("Enable main button")
 	g.chkA.SetChecked(true)
@@ -109,12 +114,14 @@ func (g *Game) initOnce() {
 
 	g.footer = ui.NewLabel("")
 
-	// Register in draw order
 	g.ctx.Add(g.title)
 	g.ctx.Add(g.focusInfo)
 	g.ctx.Add(g.txtA)
 	g.ctx.Add(g.txtB)
 	g.ctx.Add(g.txtDis)
+	g.ctx.Add(g.ta)
+	g.ctx.Add(g.sel)
+	g.ctx.Add(g.box)
 	g.ctx.Add(g.chkA)
 	g.ctx.Add(g.chkDis)
 	g.ctx.Add(g.btnA)
@@ -125,19 +132,31 @@ func (g *Game) initOnce() {
 func (g *Game) Layout(outW, outH int) (int, int) {
 	g.initOnce()
 
-	// outsideWidth/outsideHeight are logical pixels.
 	g.winW, g.winH = outW, outH
 
-	g.scale = ui.Scale{Device: ebiten.DeviceScaleFactor(), UI: 1.0}
+	// On mobile, Ebiten input coordinates are already in this logical space.
+	// Use renderer.SetScale to handle HiDPI.
+	dev := ebiten.DeviceScaleFactor()
+	if dev <= 0 {
+		dev = 1
+	}
 
-	// Render on a physical canvas for crisp UI.
-	canvasW := int(math.Ceil(float64(outW) * g.scale.Device))
-	canvasH := int(math.Ceil(float64(outH) * g.scale.Device))
+	// Optional: make UI larger on visibly high-res screens where dev is 1.
+	// This is a conservative heuristic.
+	uiScale := 1.0
+	minSide := float64(outW)
+	if float64(outH) < minSide {
+		minSide = float64(outH)
+	}
+	if dev == 1 && minSide >= 900 {
+		uiScale = 2.0
+	}
 
-	// etxt renderer should not apply extra scaling when we already render in physical pixels.
+	g.scale = ui.Scale{Device: dev, UI: uiScale}
+	g.ctx.SetScale(g.scale)
 	g.renderer.SetScale(1)
 
-	return canvasW, canvasH
+	return outW, outH
 }
 
 func (g *Game) Update() error {
@@ -145,26 +164,23 @@ func (g *Game) Update() error {
 		return ebiten.Termination
 	}
 
-	// Layout in logical units, then convert to physical pixels.
 	padding := 12
-	x := g.scale.PxI(padding)
-	y := g.scale.PxI(padding)
-	w := g.scale.PxI(g.winW - padding*2)
+	x := padding
+	y := padding
+	w := g.winW - padding*2
 
-	// Title / info
 	g.title.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceS
 
 	fw := g.ctx.Focused()
 	if fw == nil {
-		g.focusInfo.SetText("Focused: (none) — click a widget or TAB")
+		g.focusInfo.SetText("Focused: (none) — tap a widget or TAB")
 	} else {
 		g.focusInfo.SetText(fmt.Sprintf("Focused: %T", fw))
 	}
 	g.focusInfo.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceM
 
-	// Inputs
 	g.txtA.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceS
 
@@ -174,14 +190,26 @@ func (g *Game) Update() error {
 	g.txtDis.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceM
 
-	// Checkboxes
+	g.ta.SetRectByWidth(x, y, w)
+	y += g.theme.ControlH + g.theme.SpaceM
+
+	g.sel.SetRectByWidth(x, y, w)
+	y += g.sel.Base().Rect.H + g.theme.SpaceM
+
+	g.box.SetRectByWidth(x, y, w)
+	y += g.theme.ControlH + g.theme.SpaceM
+
 	g.chkA.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceS
 
 	g.chkDis.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceM
 
-	// Buttons
+	g.txtB.Base().Invalid = true
+	g.txtB.Base().ErrorText = "Invalid feedback"
+	g.sel.Base().Invalid = true
+	g.sel.Base().ErrorText = "Choose a valid option"
+
 	g.btnA.SetEnabled(g.chkA.Checked())
 	g.btnA.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceS
@@ -189,7 +217,6 @@ func (g *Game) Update() error {
 	g.btnDis.SetRectByWidth(x, y, w)
 	y += g.theme.ControlH + g.theme.SpaceM
 
-	// Footer
 	g.footer.SetRectByWidth(x, y, w)
 
 	g.ctx.Update()

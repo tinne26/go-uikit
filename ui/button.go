@@ -70,7 +70,7 @@ func (b *Button) Draw(ctx *Context, dst *ebiten.Image) {
 		b.base.SetRectByWidth(ctx.Theme, b.base.Rect.X, b.base.Rect.Y, b.base.Rect.W)
 	}
 
-	r := b.base.Rect
+	r := b.base.ControlRect(ctx.Theme)
 
 	// Surface
 	bg := ctx.Theme.Surface
@@ -87,6 +87,9 @@ func (b *Button) Draw(ctx *Context, dst *ebiten.Image) {
 	border := ctx.Theme.Border
 	if !b.base.Enabled {
 		border = ctx.Theme.Disabled
+	}
+	if b.base.Invalid {
+		border = ctx.Theme.ErrorBorder
 	}
 	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, border)
 
@@ -110,4 +113,9 @@ func (b *Button) Draw(ctx *Context, dst *ebiten.Image) {
 	ctx.Text.SetColor(col)
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.Draw(dst, b.label, tx, baselineY)
+
+	err := b.base.ErrorRect(ctx.Theme)
+	if b.base.Invalid {
+		drawErrorText(ctx, dst, err, b.base.ErrorText)
+	}
 }

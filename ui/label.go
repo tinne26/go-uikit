@@ -40,11 +40,16 @@ func (l *Label) Draw(ctx *Context, dst *ebiten.Image) {
 		l.base.SetRectByWidth(ctx.Theme, l.base.Rect.X, l.base.Rect.Y, l.base.Rect.W)
 	}
 
-	r := l.base.Rect
+	r := l.base.ControlRect(ctx.Theme)
 	met, _ := MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
 	baselineY := r.Y + (r.H-met.Height)/2 + met.Ascent
 
 	ctx.Text.SetColor(ctx.Theme.MutedText)
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.Draw(dst, l.text, r.X, baselineY)
+
+	err := l.base.ErrorRect(ctx.Theme)
+	if l.base.Invalid {
+		drawErrorText(ctx, dst, err, l.base.ErrorText)
+	}
 }

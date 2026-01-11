@@ -69,7 +69,7 @@ func (c *Checkbox) Draw(ctx *Context, dst *ebiten.Image) {
 		c.base.SetRectByWidth(ctx.Theme, c.base.Rect.X, c.base.Rect.Y, c.base.Rect.W)
 	}
 
-	r := c.base.Rect
+	r := c.base.ControlRect(ctx.Theme)
 
 	// Surface
 	bg := ctx.Theme.Surface
@@ -81,7 +81,11 @@ func (c *Checkbox) Draw(ctx *Context, dst *ebiten.Image) {
 		bg = ctx.Theme.SurfaceHover
 	}
 	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, ctx.Theme.Border)
+	borderCol := ctx.Theme.Border
+	if c.base.Invalid {
+		borderCol = ctx.Theme.ErrorBorder
+	}
+	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
 
 	if c.base.focused && c.base.Enabled {
 		drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
@@ -129,4 +133,9 @@ func (c *Checkbox) Draw(ctx *Context, dst *ebiten.Image) {
 	ctx.Text.SetColor(col)
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.Draw(dst, c.label, tx, baselineY)
+
+	err := c.base.ErrorRect(ctx.Theme)
+	if c.base.Invalid {
+		drawErrorText(ctx, dst, err, c.base.ErrorText)
+	}
 }
