@@ -24,6 +24,7 @@ func (l *Label) SetFrame(x, y, w int) {
 		l.base.SetFrame(l.theme, x, y, w)
 		return
 	}
+
 	l.base.Rect = Rect{X: x, Y: y, W: w, H: 0}
 }
 
@@ -48,10 +49,13 @@ func (l *Label) Draw(ctx *Context, dst *ebiten.Image) {
 
 	ctx.Text.SetColor(ctx.Theme.MutedText)
 	ctx.Text.SetAlign(0) // Left
-	DrawTextSafe(ctx, dst, l.text, r.X, baselineY)
+	ctx.Text.Draw(dst, l.text, r.X, baselineY)
 
 	err := l.base.ErrorRect(ctx.Theme)
 	if l.base.Invalid {
 		drawErrorText(ctx, dst, err, l.base.ErrorText)
 	}
 }
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (l *Label) SetTheme(theme *Theme) { l.theme = theme }

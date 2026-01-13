@@ -29,6 +29,7 @@ func (c *Checkbox) SetFrame(x, y, w int) {
 		c.base.SetFrame(c.theme, x, y, w)
 		return
 	}
+
 	c.base.Rect = Rect{X: x, Y: y, W: w, H: 0}
 }
 
@@ -134,10 +135,13 @@ func (c *Checkbox) Draw(ctx *Context, dst *ebiten.Image) {
 
 	ctx.Text.SetColor(col)
 	ctx.Text.SetAlign(0) // Left
-	DrawTextSafe(ctx, dst, c.label, tx, baselineY)
+	ctx.Text.Draw(dst, c.label, tx, baselineY)
 
 	err := c.base.ErrorRect(ctx.Theme)
 	if c.base.Invalid {
 		drawErrorText(ctx, dst, err, c.base.ErrorText)
 	}
 }
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (c *Checkbox) SetTheme(theme *Theme) { c.theme = theme }

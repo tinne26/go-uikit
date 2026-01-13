@@ -8,6 +8,7 @@ import (
 
 // Context holds shared state for all widgets.
 type Context struct {
+	root  Layout
 	Theme *Theme
 	Text  *etxt.Renderer
 	IME   IMEBridge // optional (nil on desktop)
@@ -33,6 +34,11 @@ func NewContext(theme *Theme, renderer *etxt.Renderer, ime IMEBridge) *Context {
 	// Ensure renderer style is consistent with the theme.
 	renderer.SetFont(theme.Font)
 	renderer.SetSize(float64(theme.FontPx))
+
+	root := NewStackLayout(theme)
+	root.PadX = theme.SpaceM
+	root.PadY = theme.SpaceM
+
 	return &Context{
 		Theme:       theme,
 		Text:        renderer,
@@ -40,7 +46,17 @@ func NewContext(theme *Theme, renderer *etxt.Renderer, ime IMEBridge) *Context {
 		Scale:       Scale{Device: 1, UI: 1},
 		focus:       -1,
 		prevTouches: map[ebiten.TouchID]struct{}{},
+		root:        root,
+		widgets:     []Widget{root},
 	}
+}
+
+// Root returns the root widget (typically a Layout).
+func (c *Context) Root() Layout { return c.root }
+
+// SetRoot replaces the root widget.
+func (c *Context) SetRoot(l Layout) {
+	c.root = l
 }
 
 // SetScale stores a scale value for the app. The default Context input space is logical pixels.
@@ -53,9 +69,8 @@ func (c *Context) SetIMEBridge(b IMEBridge) {
 	c.updateIMEForce(c.Focused())
 }
 
-func (c *Context) Add(w Widget) { c.widgets = append(c.widgets, w) }
-func (c *Context) Widgets() []Widget {
-	return c.widgets
+func (c *Context) Add(w Widget) {
+	c.root.Add(w)
 }
 
 func (c *Context) Focused() Widget {
@@ -68,6 +83,31 @@ func (c *Context) Focused() Widget {
 
 // Pointer returns the current pointer state in logical pixels.
 // On desktop this is the mouse; on mobile this is the active touch.
+
+func (c *Context) rebuildWidgets() {
+	c.widgets = c.widgets[:0]
+	var walk func(w Widget)
+	walk = func(w Widget) {
+		if w == nil {
+			return
+		}
+		c.widgets = append(c.widgets, w)
+		if l, ok := any(w).(Layout); ok {
+			for _, ch := range l.Children() {
+				walk(ch)
+			}
+			return
+		}
+		// Support nested layouts even if not typed as Layout (defensive)
+		if hw, ok := any(w).(interface{ Children() []Widget }); ok {
+			for _, ch := range hw.Children() {
+				walk(ch)
+			}
+		}
+	}
+	walk(c.root)
+}
+
 func (c *Context) Pointer() (x, y int, down, justDown, justUp, isTouch bool) {
 	return c.ptrX, c.ptrY, c.ptrDown, c.ptrJustDown, c.ptrJustUp, c.ptrIsTouch
 }
@@ -266,7 +306,12 @@ func (c *Context) topmostAt(x, y int) Widget {
 }
 
 func (c *Context) Update() {
+	// Snapshot input once per frame
 	c.readPointerSnapshot()
+	c.root.Update(c)
+
+	// Rebuild flat list for hit-testing, focus traversal, and event dispatch.
+	c.rebuildWidgets()
 
 	// Keyboard focus traversal (desktop)
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
@@ -280,28 +325,16 @@ func (c *Context) Update() {
 	// IME behavior: any tap/click outside a text input closes the IME.
 	// We decide focus target on pointer down using a "topmost hit" strategy.
 	if c.ptrJustDown {
-		var hit Widget
-		for i := len(c.widgets) - 1; i >= 0; i-- {
-			w := c.widgets[i]
-			b := w.Base()
-			if !b.Visible || !b.Enabled {
-				continue
-			}
-			if b.Rect.Contains(c.ptrX, c.ptrY) {
-				hit = w
-				break
-			}
-		}
-		if hit == nil {
-			// Clicked on empty space: clear focus -> hide IME
-			c.SetFocus(nil)
-		} else {
-			// If the hit widget doesn't want IME, focusing it (or clearing focus) will hide IME.
-			if hit.Focusable() {
-				c.SetFocus(hit)
+		w := c.topmostAt(c.ptrX, c.ptrY)
+		if w != nil {
+			if tw, ok := w.(TextWidget); ok && tw.WantsIME() {
+				c.SetFocus(w)
 			} else {
+				// If clicked non-text widget, clear focus (closes IME).
 				c.SetFocus(nil)
 			}
+		} else {
+			c.SetFocus(nil)
 		}
 	}
 
@@ -329,20 +362,13 @@ func (c *Context) Update() {
 		if c.ptrJustDown && target == w && b.Enabled {
 			b.pressed = true
 			c.dispatch(w, Event{Type: EventPointerDown, X: c.ptrX, Y: c.ptrY})
-			if w.Focusable() {
-				c.SetFocus(w)
-			}
 		}
 
-		b.focused = (c.Focused() == w) && b.Enabled && w.Focusable()
-
-		w.Update(c)
-
-		// Pointer up + click only if this widget was pressed.
+		// Pointer up: release + click if pointer ends inside widget.
 		if c.ptrJustUp {
-			if b.pressed {
+			wasPressed := b.pressed
+			if wasPressed {
 				c.dispatch(w, Event{Type: EventPointerUp, X: c.ptrX, Y: c.ptrY})
-				// Click is valid if pointer ends within widget hit area.
 				if b.Enabled && c.widgetHit(w, c.ptrX, c.ptrY) {
 					c.dispatch(w, Event{Type: EventClick, X: c.ptrX, Y: c.ptrY})
 				}
@@ -355,21 +381,12 @@ func (c *Context) Update() {
 }
 
 func (c *Context) Draw(dst *ebiten.Image) {
-	// Base layer
-	for _, w := range c.widgets {
-		if !w.Base().Visible {
-			continue
-		}
-		w.Draw(c, dst)
+	if c.root == nil {
+		return
 	}
-
-	// Overlay layer (e.g. Select dropdown)
-	for _, w := range c.widgets {
-		if !w.Base().Visible {
-			continue
-		}
-		if o, ok := any(w).(OverlayWidget); ok && o.OverlayActive() {
-			o.DrawOverlay(c, dst)
-		}
+	c.root.Draw(c, dst)
+	// Overlay pass delegated to root/layout
+	if ow, ok := any(c.root).(interface{ DrawOverlay(*Context, *ebiten.Image) }); ok {
+		ow.DrawOverlay(c, dst)
 	}
 }

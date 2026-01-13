@@ -30,6 +30,7 @@ func (c *Container) SetFrame(x, y, w int) {
 		c.base.SetFrame(c.theme, x, y, w)
 		return
 	}
+
 	c.base.Rect = Rect{X: x, Y: y, W: w, H: 0}
 }
 
@@ -73,3 +74,6 @@ func (c *Container) Draw(ctx *Context, dst *ebiten.Image) {
 		drawErrorText(ctx, dst, err, c.base.ErrorText)
 	}
 }
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (c *Container) SetTheme(theme *Theme) { c.theme = theme }

@@ -48,6 +48,7 @@ func (t *TextInput) SetFrame(x, y, w int) {
 		t.base.SetFrame(t.theme, x, y, w)
 		return
 	}
+
 	t.base.Rect = Rect{X: x, Y: y, W: w, H: 0}
 }
 
@@ -189,7 +190,7 @@ func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
 
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.SetColor(textCol)
-	DrawTextSafe(ctx, dst, drawStr, content.X+shiftX, baselineY)
+	ctx.Text.Draw(dst, drawStr, content.X+shiftX, baselineY)
 
 	// Caret (rect, no extra space)
 	if t.base.focused && t.base.Enabled && t.CaretWidthPx > 0 {
@@ -216,3 +217,6 @@ func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
 		drawErrorText(ctx, dst, err, t.base.ErrorText)
 	}
 }
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (t *TextInput) SetTheme(theme *Theme) { t.theme = theme }

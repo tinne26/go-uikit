@@ -14,8 +14,11 @@ import (
 )
 
 type Game struct {
-	stack *ui.LayoutStack
-	ime   ui.IMEBridge
+	stack    *ui.StackLayout
+	grid     *ui.GridLayout
+	useGrid  bool
+	contentH int
+	ime      ui.IMEBridge
 
 	winW, winH int
 
@@ -33,6 +36,7 @@ type Game struct {
 	box          *ui.Container
 	chkA         *ui.Checkbox
 	chkDis       *ui.Checkbox
+	chkGrid      *ui.Checkbox
 	btnA         *ui.Button
 	btnDis       *ui.Button
 	footer       *ui.Label
@@ -66,7 +70,6 @@ func (g *Game) initOnce() {
 	g.renderer = etxt.NewRenderer()
 	g.renderer.Utils().SetCache8MiB()
 	g.renderer.SetAlign(etxt.Left)
-	// Official way to avoid panics when a glyph is missing in the font.
 	g.renderer.Glyph().SetMissHandler(etxt.OnMissNotdef)
 
 	f := mustFont()
@@ -76,7 +79,8 @@ func (g *Game) initOnce() {
 	g.theme = ui.NewTheme(f, 20)
 
 	g.ctx = ui.NewContext(g.theme, g.renderer, g.ime)
-	g.stack = ui.NewLayoutStack(g.theme)
+	g.stack = ui.NewStackLayout(g.theme)
+	g.grid = ui.NewGridLayout(g.theme)
 
 	g.title = ui.NewLabel("UI Kit Demo — consistent proportions (Theme-driven)")
 	g.focusInfo = ui.NewLabel("")
@@ -129,6 +133,8 @@ func (g *Game) initOnce() {
 	g.chkDis.SetChecked(true)
 	g.chkDis.SetEnabled(false)
 
+	g.chkGrid = ui.NewCheckbox("Use grid layout")
+
 	g.btnA = ui.NewButton("Action (enabled)")
 	g.btnA.OnClick = func() {
 		g.footer.SetText("Button clicked!")
@@ -141,18 +147,28 @@ func (g *Game) initOnce() {
 
 	g.ctx.Add(g.title)
 	g.ctx.Add(g.focusInfo)
-	g.ctx.Add(g.exampleLabel)
-	g.ctx.Add(g.txtA)
-	g.ctx.Add(g.txtB)
-	g.ctx.Add(g.txtDis)
-	g.ctx.Add(g.ta)
-	g.ctx.Add(g.sel)
-	g.ctx.Add(g.box)
-	g.ctx.Add(g.chkA)
-	g.ctx.Add(g.chkDis)
-	g.ctx.Add(g.btnA)
-	g.ctx.Add(g.btnDis)
-	g.ctx.Add(g.footer)
+	g.ctx.Add(g.chkGrid)
+
+	g.ctx.Add(g.stack)
+	g.ctx.Add(g.grid)
+
+	contentWidgets := []ui.Widget{
+		g.exampleLabel,
+		g.txtA,
+		g.txtB,
+		g.txtDis,
+		g.ta,
+		g.sel,
+		g.box,
+		g.chkA,
+		g.chkDis,
+		g.btnA,
+		g.btnDis,
+	}
+
+	g.stack.SetChildren(contentWidgets)
+	g.grid.SetChildren(contentWidgets)
+
 }
 
 func (g *Game) Layout(outW, outH int) (int, int) {
@@ -198,6 +214,7 @@ func (g *Game) Update() error {
 	}
 
 	// Header
+	g.ctx.Root().SetFrame(x, y, w)
 	g.title.SetFrame(x, y, w)
 	y += g.title.Measure().H + g.theme.SpaceS
 
@@ -217,7 +234,10 @@ func (g *Game) Update() error {
 		viewportH = g.theme.ControlH
 	}
 
-	g.stack.Viewport = ui.Rect{X: x, Y: y, W: w, H: viewportH}
+	g.stack.SetFrame(x, y, w)
+	g.stack.SetHeight(viewportH)
+	g.grid.SetFrame(x, y, w)
+	g.grid.SetHeight(viewportH)
 
 	// Demo validations
 	if g.txtB.Text() == "" {
@@ -247,32 +267,20 @@ func (g *Game) Update() error {
 
 	// Enable button based on checkbox state
 	g.btnA.SetEnabled(g.chkA.Checked())
+	g.useGrid = g.chkGrid.Checked()
 
-	contentWidgets := []ui.Widget{
-		g.exampleLabel,
-		g.txtA,
-		g.txtB,
-		g.txtDis,
-		g.ta,
-		g.sel,
-		g.box,
-		g.chkA,
-		g.chkDis,
-		g.btnA,
-		g.btnDis,
+	// Swap root layout (stack or grid)
+	if g.useGrid {
+		g.grid.Base().SetVisible(true)
+		g.stack.Base().SetVisible(false)
+	} else {
+		g.stack.Base().SetVisible(true)
+		g.grid.Base().SetVisible(false)
 	}
-
-	// Two-pass: layout -> scroll -> layout
-	contentH := g.stack.Apply(g.ctx, contentWidgets)
-	g.stack.UpdateScroll(g.ctx, contentH)
-	g.stack.Apply(g.ctx, contentWidgets)
-
-	// Footer
-	y = g.stack.Viewport.Bottom() + g.theme.SpaceM
-	g.footer.SetFrame(x, y, w)
 
 	// Update widgets (events, focus, etc.)
 	g.ctx.Update()
+
 	return nil
 }
 

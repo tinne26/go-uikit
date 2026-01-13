@@ -12,3 +12,9 @@ type Widget interface {
 	Update(ctx *Context)
 	Draw(ctx *Context, dst *ebiten.Image)
 }
+
+// TextWidget is implemented by widgets that want to control the platform IME (e.g., TextInput, TextArea).
+type TextWidget interface {
+	Widget
+	WantsIME() bool
+}

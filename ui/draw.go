@@ -125,7 +125,7 @@ func drawErrorText(ctx *Context, dst *ebiten.Image, r Rect, msg string) {
 	ctx.Text.SetAlign(0)
 	ctx.Text.SetSize(float64(ctx.Theme.ErrorFontPx))
 	ctx.Text.SetColor(ctx.Theme.ErrorText)
-	DrawTextSafe(ctx, dst, msg, r.X, baselineY)
+	ctx.Text.Draw(dst, msg, r.X, baselineY)
 
 	// Restore default size/color for subsequent draws.
 	ctx.Text.SetSize(float64(ctx.Theme.FontPx))

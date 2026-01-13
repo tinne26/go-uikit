@@ -28,6 +28,7 @@ func (b *Button) SetFrame(x, y, w int) {
 		b.base.SetFrame(b.theme, x, y, w)
 		return
 	}
+
 	b.base.Rect = Rect{X: x, Y: y, W: w, H: 0}
 }
 
@@ -114,10 +115,13 @@ func (b *Button) Draw(ctx *Context, dst *ebiten.Image) {
 
 	ctx.Text.SetColor(col)
 	ctx.Text.SetAlign(0) // Left
-	DrawTextSafe(ctx, dst, b.label, tx, baselineY)
+	ctx.Text.Draw(dst, b.label, tx, baselineY)
 
 	err := b.base.ErrorRect(ctx.Theme)
 	if b.base.Invalid {
 		drawErrorText(ctx, dst, err, b.base.ErrorText)
 	}
 }
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (b *Button) SetTheme(theme *Theme) { b.theme = theme }

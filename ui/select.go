@@ -43,6 +43,7 @@ func (s *Select) SetOptions(opts []string) {
 	if s.index >= len(opts) {
 		s.index = 0
 	}
+
 }
 
 func (s *Select) Index() int { return s.index }
@@ -194,12 +195,12 @@ func (s *Select) Draw(ctx *Context, dst *ebiten.Image) {
 	}
 	ctx.Text.SetColor(ctx.Theme.Text)
 	ctx.Text.SetAlign(0)
-	DrawTextSafe(ctx, dst, val, ctrl.X+ctx.Theme.PadX, baselineY)
+	ctx.Text.Draw(dst, val, ctrl.X+ctx.Theme.PadX, baselineY)
 
 	// Chevron
 	chev := "▾"
 	cw := MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, chev)
-	DrawTextSafe(ctx, dst, chev, ctrl.Right()-ctx.Theme.PadX-cw, baselineY)
+	ctx.Text.Draw(dst, chev, ctrl.Right()-ctx.Theme.PadX-cw, baselineY)
 
 	// Validation message
 	err := s.base.ErrorRect(ctx.Theme)
@@ -234,6 +235,9 @@ func (s *Select) DrawOverlay(ctx *Context, dst *ebiten.Image) {
 		bY := row.Y + (row.H-met.Height)/2 + met.Ascent
 		ctx.Text.SetColor(ctx.Theme.Text)
 		ctx.Text.SetAlign(0)
-		DrawTextSafe(ctx, dst, s.options[idx], row.X+ctx.Theme.PadX, bY)
+		ctx.Text.Draw(dst, s.options[idx], row.X+ctx.Theme.PadX, bY)
 	}
 }
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (s *Select) SetTheme(theme *Theme) { s.theme = theme }

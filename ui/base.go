@@ -13,6 +13,7 @@ type Base struct {
 	// ControlH overrides Theme.ControlH when > 0 (for variable-height controls like TextArea).
 	ControlH int
 
+	// internal state (managed by Context)
 	hovered bool
 	pressed bool
 	focused bool
