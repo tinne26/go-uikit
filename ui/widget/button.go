@@ -1,21 +1,21 @@
 package widget
 
 import (
+	"image"
+
 	"github.com/erparts/go-uikit/ui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 type Button struct {
-	base  ui.Base
-	theme *ui.Theme
-
+	base    ui.Base
 	label   string
 	OnClick func()
 }
 
-func NewButton(label string) *Button {
-	cfg := ui.NewWidgetBaseConfig()
+func NewButton(theme *ui.Theme, label string) *Button {
+	cfg := ui.NewWidgetBaseConfig(theme)
 
 	return &Button{
 		base:  ui.NewBase(cfg),
@@ -23,22 +23,30 @@ func NewButton(label string) *Button {
 	}
 }
 
-func (b *Button) Base() *ui.Base  { return &b.base }
-func (b *Button) Focusable() bool { return true }
-
-func (b *Button) SetFrame(x, y, w int) {
-	if b.theme != nil {
-		b.base.SetFrame(b.theme, x, y, w)
-		return
-	}
-
-	b.base.Rect = ui.Rect{X: x, Y: y, W: w, H: 0}
+func (b *Button) Base() *ui.Base {
+	return &b.base
 }
 
-func (b *Button) Measure() ui.Rect { return b.base.Rect }
+func (b *Button) Focusable() bool {
+	return true
+}
 
-func (b *Button) SetEnabled(v bool) { b.base.SetEnabled(v) }
-func (b *Button) SetVisible(v bool) { b.base.SetVisible(v) }
+func (b *Button) SetFrame(x, y, w int) {
+	b.base.SetFrame(x, y, w)
+}
+
+func (b *Button) Measure() image.Rectangle {
+	return b.base.Rect
+}
+
+func (b *Button) SetEnabled(v bool) {
+	b.base.SetEnabled(v)
+}
+
+func (b *Button) SetVisible(v bool) {
+	b.base.SetVisible(v)
+}
+
 func (b *Button) SetLabel(s string) { b.label = s }
 
 func (b *Button) HandleEvent(ctx *ui.Context, e ui.Event) {
@@ -54,17 +62,12 @@ func (b *Button) HandleEvent(ctx *ui.Context, e ui.Event) {
 }
 
 func (b *Button) Update(ctx *ui.Context) {
-	b.theme = ctx.Theme
-	if b.base.Rect.H == 0 {
-		b.base.SetFrame(ctx.Theme, b.base.Rect.X, b.base.Rect.Y, b.base.Rect.W)
-	}
-
 	if !b.base.IsEnabled() {
 		return
 	}
 
 	// Keyboard click when focused
-	if b.base.Focused() && (inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace)) {
+	if b.base.IsFocused() && (inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace)) {
 		if b.OnClick != nil {
 			b.OnClick()
 		}
@@ -78,8 +81,8 @@ func (b *Button) Draw(ctx *ui.Context, dst *ebiten.Image) {
 	met, _ := ui.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
 	textW := ui.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, b.label)
 
-	tx := r.X + (r.W-textW)/2
-	baselineY := r.Y + (r.H-met.Height)/2 + met.Ascent
+	tx := r.Min.X + (r.Dx()-textW)/2
+	baselineY := r.Min.Y + (r.Dy()-met.Height)/2 + met.Ascent
 
 	col := ctx.Theme.Text
 	if !b.base.IsEnabled() {
@@ -90,6 +93,3 @@ func (b *Button) Draw(ctx *ui.Context, dst *ebiten.Image) {
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.Draw(dst, b.label, tx, baselineY)
 }
-
-// SetTheme allows layouts to provide Theme before SetFrame is called.
-func (b *Button) SetTheme(theme *ui.Theme) { b.theme = theme }

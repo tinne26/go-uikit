@@ -1,20 +1,24 @@
 package ui
 
 import (
+	"image"
 	"image/color"
 
+	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type WidgetBaseConfig struct {
+	Theme       *Theme
 	DrawSurface bool
 	DrawBorder  bool
 	DrawFocus   bool
 	DrawInvalid bool
 }
 
-func NewWidgetBaseConfig() *WidgetBaseConfig {
+func NewWidgetBaseConfig(theme *Theme) *WidgetBaseConfig {
 	return &WidgetBaseConfig{
+		Theme:       theme,
 		DrawSurface: true,
 		DrawBorder:  true,
 		DrawFocus:   true,
@@ -23,16 +27,13 @@ func NewWidgetBaseConfig() *WidgetBaseConfig {
 }
 
 // Base contains shared widget state.
-// Height is usually Theme.ControlH, but can be overridden per widget (e.g. TextArea). External layout controls only X/Y/Width.
 type Base struct {
-	cfg *WidgetBaseConfig
+	cfg   *WidgetBaseConfig
+	theme *Theme
 
-	Rect Rect
+	Rect image.Rectangle
 
-	// ControlH overrides Theme.ControlH when > 0 (for variable-height controls like TextArea).
-	ControlH int
-
-	// internal state (managed by Context)
+	controlH  int
 	hovered   bool
 	pressed   bool
 	focused   bool
@@ -40,47 +41,50 @@ type Base struct {
 	enabled   bool
 	invalid   bool
 	errorText string
-
-	theme *Theme
 }
 
 func NewBase(cfg *WidgetBaseConfig) Base {
 	return Base{
 		cfg:     cfg,
+		theme:   cfg.Theme,
 		visible: true,
 		enabled: true,
 	}
 }
 
 func (b *Base) ControlHeight(theme *Theme) int {
-	if b.ControlH > 0 {
-		return b.ControlH
+	if b.controlH > 0 {
+		return b.controlH
 	}
-
+	if theme == nil {
+		panic("theme nil")
+	}
 	return theme.ControlH
 }
 
 func (b *Base) RequiredHeight(theme *Theme) int {
 	h := b.ControlHeight(theme)
 	if b.invalid && b.errorText != "" {
-		// error line height uses theme.ErrorFontPx metrics
 		met, _ := MetricsPx(theme.Font, theme.ErrorFontPx)
 		h += theme.ErrorGap + met.Height
 	}
+
 	return h
 }
 
-func (b *Base) ControlRect(theme *Theme) Rect {
-	return Rect{X: b.Rect.X, Y: b.Rect.Y, W: b.Rect.W, H: b.ControlHeight(theme)}
+func (b *Base) ControlRect(theme *Theme) image.Rectangle {
+	return common.ChangeRectangleHeight(b.Rect, b.ControlHeight(theme))
 }
 
-func (b *Base) ErrorRect(theme *Theme) Rect {
+func (b *Base) ErrorRect(theme *Theme) image.Rectangle {
 	if !(b.invalid && b.errorText != "") {
-		return Rect{}
+		return image.Rectangle{}
 	}
+
 	met, _ := MetricsPx(theme.Font, theme.ErrorFontPx)
-	y := b.Rect.Y + b.ControlHeight(theme) + theme.ErrorGap
-	return Rect{X: b.Rect.X, Y: y, W: b.Rect.W, H: met.Height}
+	y := b.Rect.Min.Y + b.ControlHeight(theme) + theme.ErrorGap
+
+	return image.Rect(b.Rect.Min.X, y, b.Rect.Max.X, y+met.Height)
 }
 
 func (b *Base) IsInvalid() (bool, string) {
@@ -99,22 +103,23 @@ func (b *Base) ClearInvalid() {
 
 // SetFrame sets the widget position (x,y) and width (w).
 // The final height is computed from the theme and the widget state (e.g. error line, variable-height controls).
-func (b *Base) SetFrame(theme *Theme, x, y, w int) {
+func (b *Base) SetFrame(x, y, w int) {
 	if w < 0 {
 		w = 0
 	}
-	b.Rect = Rect{X: x, Y: y, W: w, H: b.RequiredHeight(theme)}
+
+	b.Rect = image.Rect(x, y, x+w, y+b.RequiredHeight(b.theme))
 }
 
-func (b *Base) Hovered() bool {
+func (b *Base) IsHovered() bool {
 	return b.hovered
 }
 
-func (b *Base) Pressed() bool {
+func (b *Base) IsPressed() bool {
 	return b.pressed
 }
 
-func (b *Base) Focused() bool {
+func (b *Base) IsFocused() bool {
 	return b.focused
 }
 
@@ -134,10 +139,10 @@ func (b *Base) SetVisible(v bool) {
 	b.visible = v
 }
 
-func (c *Base) Draw(ctx *Context, dst *ebiten.Image) Rect {
+func (c *Base) Draw(ctx *Context, dst *ebiten.Image) image.Rectangle {
 	c.theme = ctx.Theme
-	if c.Rect.H == 0 {
-		c.SetFrame(ctx.Theme, c.Rect.X, c.Rect.Y, c.Rect.W)
+	if c.Rect.Dy() == 0 {
+		c.SetFrame(c.Rect.Min.X, c.Rect.Min.Y, c.Rect.Dy())
 	}
 
 	r := c.ControlRect(ctx.Theme)
@@ -145,10 +150,10 @@ func (c *Base) Draw(ctx *Context, dst *ebiten.Image) Rect {
 	c.DrawBoder(ctx, dst, r)
 	c.DrawFocus(ctx, dst, r)
 	c.DrawInvalid(ctx, dst, r)
-	return c.ControlRect(ctx.Theme)
+	return r
 }
 
-func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image, r Rect) {
+func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 	if !c.cfg.DrawSurface {
 		return
 	}
@@ -165,7 +170,7 @@ func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image, r Rect) {
 	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
 }
 
-func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r Rect) {
+func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 	if !c.cfg.DrawBorder {
 		return
 	}
@@ -181,7 +186,7 @@ func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r Rect) {
 	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, border)
 }
 
-func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r Rect) {
+func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 	if !c.cfg.DrawFocus {
 		return
 	}
@@ -190,10 +195,10 @@ func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r Rect) {
 		return
 	}
 
-	drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
+	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingW, ctx.Theme.Focus)
 }
 
-func (c *Base) DrawInvalid(ctx *Context, dst *ebiten.Image, r Rect) {
+func (c *Base) DrawInvalid(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 	if !c.cfg.DrawInvalid {
 		return
 	}
@@ -206,19 +211,14 @@ func (c *Base) DrawInvalid(ctx *Context, dst *ebiten.Image, r Rect) {
 	drawErrorText(ctx, dst, err, c.errorText)
 }
 
-// SetTheme allows layouts to provide Theme before SetFrame is called.
-func (c *Base) SetTheme(theme *Theme) {
-	c.theme = theme
-}
-
 func (c *Base) Theme() *Theme {
 	return c.theme
 }
 
-func (c *Base) DrawRoundedRect(dst *ebiten.Image, r Rect, radius int, col color.RGBA) {
+func (c *Base) DrawRoundedRect(dst *ebiten.Image, r image.Rectangle, radius int, col color.RGBA) {
 	drawRoundedRect(dst, r, radius, col)
 }
 
-func (c *Base) DrawRoundedBorder(dst *ebiten.Image, r Rect, radius int, borderW int, col color.RGBA) {
+func (c *Base) DrawRoundedBorder(dst *ebiten.Image, r image.Rectangle, radius int, borderW int, col color.RGBA) {
 	drawRoundedBorder(dst, r, radius, borderW, col)
 }

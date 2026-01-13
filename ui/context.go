@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"image/color"
+
+	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/tinne26/etxt"
@@ -28,7 +31,7 @@ func NewContext(theme *Theme, renderer *etxt.Renderer, ime IMEBridge) *Context {
 	renderer.SetSize(float64(theme.FontPx))
 
 	root := NewStackLayout(theme)
-
+	root.background = color.RGBA{255, 0, 0, 255}
 	return &Context{
 		Theme:       theme,
 		Text:        renderer,
@@ -276,8 +279,9 @@ func (c *Context) widgetHit(w Widget, x, y int) bool {
 	if h, ok := any(w).(Hittable); ok {
 		return h.HitTest(c, x, y)
 	}
+
 	// Default: only the control area is interactive (not the error message line).
-	return w.Base().ControlRect(c.Theme).Contains(x, y)
+	return common.Contains(w.Base().ControlRect(c.Theme), x, y)
 }
 
 func (c *Context) topmostAt(x, y int) Widget {

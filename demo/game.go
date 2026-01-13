@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"strings"
 
@@ -83,27 +84,27 @@ func (g *Game) initOnce() {
 	g.stack = ui.NewStackLayout(g.theme)
 	g.grid = ui.NewGridLayout(g.theme)
 
-	g.title = widget.NewLabel("UI Kit Demo — consistent proportions (Theme-driven)")
-	g.focusInfo = widget.NewLabel("")
-	g.exampleLabel = widget.NewLabel("Label example: static helper text")
+	g.title = widget.NewLabel(g.theme, "UI Kit Demo — consistent proportions (Theme-driven)")
+	g.focusInfo = widget.NewLabel(g.theme, "")
+	g.exampleLabel = widget.NewLabel(g.theme, "Label example: static helper text")
 
-	g.txtA = widget.NewTextInput("Type here…")
+	g.txtA = widget.NewTextInput(g.theme, "Type here…")
 	g.txtA.SetDefault("Hello Ebiten UI")
 
-	g.txtB = widget.NewTextInput("Search…")
+	g.txtB = widget.NewTextInput(g.theme, "Search…")
 
-	g.txtDis = widget.NewTextInput("Disabled input")
+	g.txtDis = widget.NewTextInput(g.theme, "Disabled input")
 	g.txtDis.SetDefault("Disabled value")
 	g.txtDis.SetEnabled(false)
 
-	g.ta = widget.NewTextArea("Multi-line…")
+	g.ta = widget.NewTextArea(g.theme, "Multi-line…")
 	g.ta.SetLines(5)
 	g.ta.SetText("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7")
 
-	g.sel = widget.NewSelect([]string{"Option A", "Option B", "Option C", "Option D", "Option E", "Option F"})
+	g.sel = widget.NewSelect(g.theme, []string{"Option A", "Option B", "Option C", "Option D", "Option E", "Option F"})
 
-	g.box = widget.NewContainer()
-	g.box.OnDraw = func(ctx *ui.Context, dst *ebiten.Image, content ui.Rect) {
+	g.box = widget.NewContainer(g.theme)
+	g.box.OnDraw = func(ctx *ui.Context, dst *ebiten.Image, content image.Rectangle) {
 		// Example: draw custom content using the same text renderer/theme.
 		lines := []string{
 			"Custom container (user content)",
@@ -119,32 +120,32 @@ func (g *Game) initOnce() {
 		}
 
 		met, _ := ui.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-		y := content.Y + met.Ascent
+		y := content.Min.Y + met.Ascent
 		ctx.Text.SetColor(ctx.Theme.MutedText)
 		for _, ln := range lines {
-			ctx.Text.Draw(dst, ln, content.X, y)
+			ctx.Text.Draw(dst, ln, content.Min.X, y)
 			y += met.Height
 		}
 	}
 
-	g.chkA = widget.NewCheckbox("Enable main button")
+	g.chkA = widget.NewCheckbox(g.theme, "Enable main button")
 	g.chkA.SetChecked(true)
 
-	g.chkDis = widget.NewCheckbox("Disabled checkbox")
+	g.chkDis = widget.NewCheckbox(g.theme, "Disabled checkbox")
 	g.chkDis.SetChecked(true)
 	g.chkDis.SetEnabled(false)
 
-	g.chkGrid = widget.NewCheckbox("Use grid layout")
+	g.chkGrid = widget.NewCheckbox(g.theme, "Use grid layout")
 
-	g.btnA = widget.NewButton("Action (enabled)")
+	g.btnA = widget.NewButton(g.theme, "Action (enabled)")
 	g.btnA.OnClick = func() {
 		g.footer.SetText("Button clicked!")
 	}
 
-	g.btnDis = widget.NewButton("Action (disabled)")
+	g.btnDis = widget.NewButton(g.theme, "Action (disabled)")
 	g.btnDis.SetEnabled(false)
 
-	g.footer = widget.NewLabel("")
+	g.footer = widget.NewLabel(g.theme, "")
 
 	g.ctx.Add(g.title)
 	g.ctx.Add(g.focusInfo)
@@ -217,7 +218,7 @@ func (g *Game) Update() error {
 	// Header
 	g.ctx.Root().SetFrame(x, y, w)
 	g.title.SetFrame(x, y, w)
-	y += g.title.Measure().H + g.theme.SpaceS
+	y += g.title.Measure().Dy() + g.theme.SpaceS
 
 	fw := g.ctx.Focused()
 	if fw == nil {
@@ -226,10 +227,10 @@ func (g *Game) Update() error {
 		g.focusInfo.SetText(fmt.Sprintf("Focused: %T", fw))
 	}
 	g.focusInfo.SetFrame(x, y, w)
-	y += g.focusInfo.Measure().H + g.theme.SpaceM
+	y += g.focusInfo.Measure().Dy() + g.theme.SpaceM
 
 	// Scrollable viewport for the content widgets
-	footerH := g.footer.Measure().H
+	footerH := g.footer.Measure().Dy()
 	viewportH := g.winH - y - g.theme.SpaceM - footerH - g.theme.SpaceM
 	if viewportH < g.theme.ControlH {
 		viewportH = g.theme.ControlH
@@ -244,20 +245,20 @@ func (g *Game) Update() error {
 	if g.txtB.Text() == "" {
 		g.txtB.Base().SetInvalid("Required")
 	} else {
-		g.txtB.Base().SetInvalid("")
+		g.txtB.Base().ClearInvalid()
 	}
 
 	if strings.TrimSpace(g.ta.Text()) == "" {
 		g.txtB.Base().SetInvalid("Required")
 	} else {
-		g.txtB.Base().SetInvalid("")
+		g.txtB.Base().ClearInvalid()
 	}
 
 	selVal := g.sel.Value()
 	if selVal == "Option A" || selVal == "" {
 		g.sel.Base().SetInvalid("Option A is not allowed")
 	} else {
-		g.txtB.Base().SetInvalid("")
+		g.txtB.Base().ClearInvalid()
 	}
 
 	// Enable button based on checkbox state

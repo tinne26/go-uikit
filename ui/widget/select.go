@@ -1,8 +1,10 @@
 package widget
 
 import (
+	"image"
 	"math"
 
+	"github.com/erparts/go-uikit/common"
 	"github.com/erparts/go-uikit/ui"
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -10,8 +12,7 @@ import (
 // Select is a simple dropdown selector.
 // The dropdown is rendered as an overlay (does NOT change layout of other widgets).
 type Select struct {
-	base  ui.Base
-	theme *ui.Theme
+	base ui.Base
 
 	options []string
 	index   int
@@ -25,8 +26,8 @@ type Select struct {
 	MaxVisible int
 }
 
-func NewSelect(options []string) *Select {
-	cfg := ui.NewWidgetBaseConfig()
+func NewSelect(theme *ui.Theme, options []string) *Select {
+	cfg := ui.NewWidgetBaseConfig(theme)
 
 	return &Select{
 		base:       ui.NewBase(cfg),
@@ -72,16 +73,12 @@ func (s *Select) SetIndex(i int) {
 }
 
 func (s *Select) SetFrame(x, y, w int) {
-	if s.theme != nil {
-		s.base.SetFrame(s.theme, x, y, w)
-		return
-	}
-	s.base.Rect = ui.Rect{X: x, Y: y, W: w, H: 0}
+	s.base.SetFrame(x, y, w)
 }
 
-func (s *Select) Measure() ui.Rect { return s.base.Rect }
+func (s *Select) Measure() image.Rectangle { return s.base.Rect }
 
-func (s *Select) listRect(ctx *ui.Context) ui.Rect {
+func (s *Select) listRect(ctx *ui.Context) image.Rectangle {
 	ctrl := s.base.ControlRect(ctx.Theme)
 	n := len(s.options)
 	max := s.MaxVisible
@@ -91,26 +88,29 @@ func (s *Select) listRect(ctx *ui.Context) ui.Rect {
 	if n > max {
 		n = max
 	}
-	listY := ctrl.Bottom() + ctx.Theme.SpaceS
-	return ui.Rect{X: ctrl.X, Y: listY, W: ctrl.W, H: n * ctx.Theme.ControlH}
+
+	listY := ctrl.Max.Y + ctx.Theme.SpaceS
+	return image.Rect(ctrl.Min.X, listY, ctrl.Max.X, listY+(n*ctx.Theme.ControlH))
 }
 
 func (s *Select) HitTest(ctx *ui.Context, x, y int) bool {
 	ctrl := s.base.ControlRect(ctx.Theme)
-	if ctrl.Contains(x, y) {
+	if common.Contains(ctrl, x, y) {
 		return true
 	}
+
 	if s.open {
-		return s.listRect(ctx).Contains(x, y)
+		return common.Contains(s.listRect(ctx), x, y)
 	}
+
 	return false
 }
 
 func (s *Select) Update(ctx *ui.Context) {
-	s.theme = ctx.Theme
-	if s.base.Rect.H == 0 {
-		s.base.SetFrame(ctx.Theme, s.base.Rect.X, s.base.Rect.Y, s.base.Rect.W)
+	if s.base.Rect.Dx() > 0 && s.base.Rect.Dy() == 0 {
+		s.base.SetFrame(s.base.Rect.Min.X, s.base.Rect.Min.Y, s.base.Rect.Dx())
 	}
+
 	if !s.base.IsEnabled() {
 		return
 	}
@@ -123,20 +123,20 @@ func (s *Select) Update(ctx *ui.Context) {
 	ptr := ctx.Pointer()
 
 	// Toggle open on click in control.
-	if ptr.IsJustDown && ctrl.Contains(ptr.X, ptr.Y) {
+	if ptr.IsJustDown && common.Contains(ctrl, ptr.X, ptr.Y) {
 		s.open = !s.open
 	}
 
 	// When open, select option on click; close on click outside.
 	if s.open && ptr.IsJustDown {
-		if list.Contains(ptr.X, ptr.Y) {
-			row := (ptr.X - list.Y) / ctx.Theme.ControlH
+		if common.Contains(list, ptr.X, ptr.Y) {
+			row := (ptr.Y - list.Min.Y) / ctx.Theme.ControlH
 			idx := s.scroll + row
 			if idx >= 0 && idx < len(s.options) {
 				s.index = idx
 			}
 			s.open = false
-		} else if !ctrl.Contains(ptr.X, ptr.Y) {
+		} else if !common.Contains(ctrl, ptr.X, ptr.Y) {
 			s.open = false
 		}
 	}
@@ -167,7 +167,7 @@ func (s *Select) Draw(ctx *ui.Context, dst *ebiten.Image) {
 	r := s.base.ControlRect(ctx.Theme)
 
 	met, _ := ui.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-	baselineY := r.Y + (r.H-met.Height)/2 + met.Ascent
+	baselineY := r.Min.Y + (r.Dy()-met.Height)/2 + met.Ascent
 
 	val := s.Value()
 	if val == "" {
@@ -175,12 +175,12 @@ func (s *Select) Draw(ctx *ui.Context, dst *ebiten.Image) {
 	}
 	ctx.Text.SetColor(ctx.Theme.Text)
 	ctx.Text.SetAlign(0)
-	ctx.Text.Draw(dst, val, r.X+ctx.Theme.PadX, baselineY)
+	ctx.Text.Draw(dst, val, r.Min.X+ctx.Theme.PadX, baselineY)
 
 	// Chevron
 	chev := "▾"
 	cw := ui.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, chev)
-	ctx.Text.Draw(dst, chev, r.Right()-ctx.Theme.PadX-cw, baselineY)
+	ctx.Text.Draw(dst, chev, r.Max.X-ctx.Theme.PadX-cw, baselineY)
 }
 
 func (s *Select) DrawOverlay(ctx *ui.Context, dst *ebiten.Image) {
@@ -194,24 +194,23 @@ func (s *Select) DrawOverlay(ctx *ui.Context, dst *ebiten.Image) {
 
 	met, _ := ui.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
 
-	n := list.H / ctx.Theme.ControlH
+	n := list.Dy() / ctx.Theme.ControlH
 	for i := 0; i < n; i++ {
 		idx := s.scroll + i
 		if idx >= len(s.options) {
 			break
 		}
-		row := ui.Rect{X: list.X, Y: list.Y + i*ctx.Theme.ControlH, W: list.W, H: ctx.Theme.ControlH}
+
+		y := list.Min.Y + i*ctx.Theme.ControlH
+		row := image.Rect(list.Min.X, y, list.Max.X, y+ctx.Theme.ControlH)
 
 		if idx == s.index {
 			s.base.DrawRoundedRect(dst, row, 0, ctx.Theme.SurfaceHover)
 		}
 
-		bY := row.Y + (row.H-met.Height)/2 + met.Ascent
+		bY := row.Min.Y + (row.Dy()-met.Height)/2 + met.Ascent
 		ctx.Text.SetColor(ctx.Theme.Text)
 		ctx.Text.SetAlign(0)
-		ctx.Text.Draw(dst, s.options[idx], row.X+ctx.Theme.PadX, bY)
+		ctx.Text.Draw(dst, s.options[idx], row.Min.X+ctx.Theme.PadX, bY)
 	}
 }
-
-// SetTheme allows layouts to provide Theme before SetFrame is called.
-func (s *Select) SetTheme(theme *ui.Theme) { s.theme = theme }

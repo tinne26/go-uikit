@@ -1,11 +1,13 @@
 package ui
 
+import "image"
+
 // shiftSubtree shifts the Rect of w (and all descendants if w is a Layout) by (dx,dy).
 // It returns a restore function that must be called to restore all original rects.
 func shiftSubtree(w Widget, dx, dy int) func() {
 	type entry struct {
 		b   *Base
-		rec Rect
+		rec image.Rectangle
 	}
 	var stack []Widget
 	var saved []entry
@@ -17,7 +19,7 @@ func shiftSubtree(w Widget, dx, dy int) func() {
 
 		b := cur.Base()
 		saved = append(saved, entry{b: b, rec: b.Rect})
-		b.Rect = Rect{X: b.Rect.X + dx, Y: b.Rect.Y + dy, W: b.Rect.W, H: b.Rect.H}
+		b.Rect = image.Rect(b.Rect.Min.X+dx, b.Rect.Min.Y+dy, b.Rect.Max.X+dx, b.Rect.Max.Y+dy)
 
 		if l, ok := any(cur).(Layout); ok {
 			chs := l.Children()

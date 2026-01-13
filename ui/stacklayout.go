@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"image"
+	"image/color"
+
+	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -17,7 +21,8 @@ type StackLayout struct {
 
 	contentH int
 
-	scratch *ebiten.Image
+	scratch    *ebiten.Image
+	background color.RGBA
 }
 
 func NewStackLayout(theme *Theme) *StackLayout {
@@ -34,20 +39,20 @@ func (l *StackLayout) Base() *Base     { return &l.base }
 func (l *StackLayout) Focusable() bool { return false }
 
 func (l *StackLayout) SetFrame(x, y, w int) {
-	// Keep current height (0 => unlimited). Only external code sets height via SetHeight/SetRect.
-	l.base.Rect = Rect{X: x, Y: y, W: w, H: l.base.Rect.H}
+	l.base.Rect = image.Rect(x, y, x+w, y+l.base.Rect.Dy())
 }
 
-func (l *StackLayout) Measure() Rect { return l.base.Rect }
+func (l *StackLayout) Measure() image.Rectangle {
+	return l.base.Rect
+}
 
 // SetHeight sets the viewport height. Use 0 for unlimited (no scroll, no clipping).
 func (l *StackLayout) SetHeight(h int) {
 	if h < 0 {
 		h = 0
 	}
-	r := l.base.Rect
-	r.H = h
-	l.base.Rect = r
+
+	l.base.Rect = common.ChangeRectangleHeight(l.base.Rect, h)
 }
 
 // Children management
@@ -61,73 +66,67 @@ func (l *StackLayout) Update(ctx *Context) {
 	l.doLayout(ctx)
 
 	// Scroll input only when height is limited
-	if l.base.Rect.H > 0 {
+	if l.base.Rect.Dy() > 0 {
 		l.Scroll.Update(ctx, l.base.Rect, l.contentH)
 		// Re-layout with updated scroll offset
 		l.doLayout(ctx)
 	}
 
 	// Forward update
-	for _, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
-		if !ch.Base().visible {
+	for _, w := range l.children {
+		if !w.Base().IsVisible() {
 			continue
 		}
-		ch.Update(ctx)
+
+		w.Update(ctx)
 	}
 }
 
 func (l *StackLayout) doLayout(ctx *Context) {
 	vp := l.base.Rect
-	x0 := vp.X + l.PadX
-	y0 := vp.Y + l.PadY
-	w0 := vp.W - l.PadX*2
+	x0 := vp.Min.X + l.PadX
+	y0 := vp.Min.Y + l.PadY
+	w0 := vp.Dx() - l.PadX*2
 	if w0 < 0 {
 		w0 = 0
 	}
 
 	y := y0
-	if vp.H > 0 {
+	if vp.Dy() > 0 {
 		y -= l.Scroll.ScrollY
 	}
 
 	contentH := l.PadY * 2
 	for i, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if !ch.Base().visible {
 			continue
 		}
 		ch.SetFrame(x0, y, w0)
 		r := ch.Measure()
-		contentH += r.H
+		contentH += r.Dy()
 		if i != len(l.children)-1 {
 			contentH += l.Gap
 		}
-		y += r.H + l.Gap
+		y += r.Dy() + l.Gap
 	}
+
 	// At least viewport height so scrollbar math is stable
-	if vp.H > 0 && contentH < vp.H {
-		contentH = vp.H
+	if vp.Dy() > 0 && contentH < vp.Dy() {
+		contentH = vp.Dy()
 	}
+
 	l.contentH = contentH
 }
 
 func (l *StackLayout) Draw(ctx *Context, dst *ebiten.Image) {
-	if !l.base.visible {
+	if !l.base.IsVisible() {
 		return
 	}
 
 	vp := l.base.Rect
-	if vp.H <= 0 {
+	if vp.Dy() <= 0 {
 		// Unlimited: draw directly
 		for _, ch := range l.children {
-			if th, ok := any(ch).(Themeable); ok {
-				th.SetTheme(ctx.Theme)
-			}
 			if !ch.Base().visible {
 				continue
 			}
@@ -142,26 +141,27 @@ func (l *StackLayout) Draw(ctx *Context, dst *ebiten.Image) {
 	if l.scratch == nil || l.scratch.Bounds().Dx() != sw || l.scratch.Bounds().Dy() != sh {
 		l.scratch = ebiten.NewImage(sw, sh)
 	}
+
 	l.scratch.Clear()
 
 	for _, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if !ch.Base().visible {
 			continue
 		}
+
 		ch.Draw(ctx, l.scratch)
 	}
 
-	part := l.scratch.SubImage(vp.ImageRect()).(*ebiten.Image)
+	part := l.scratch.SubImage(vp).(*ebiten.Image)
+
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(vp.X), float64(vp.Y))
+	op.GeoM.Translate(float64(vp.Min.X), float64(vp.Min.Y))
 	dst.DrawImage(part, op)
 
 	// Scrollbar inside viewport (draw on clipped dst region)
-	sub := dst.SubImage(vp.ImageRect()).(*ebiten.Image)
-	l.Scroll.DrawBar(sub, ctx.Theme, vp.W, vp.H, l.contentH)
+	sub := dst.SubImage(vp).(*ebiten.Image)
+	l.Scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.contentH)
+
 }
 
 func (l *StackLayout) DrawOverlay(ctx *Context, dst *ebiten.Image) {
@@ -170,9 +170,6 @@ func (l *StackLayout) DrawOverlay(ctx *Context, dst *ebiten.Image) {
 	}
 	// Overlay should escape clipping -> draw on dst (not on subimage)
 	for _, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if ow, ok := any(ch).(OverlayWidget); ok && ow.OverlayActive() {
 			ow.DrawOverlay(ctx, dst)
 		}

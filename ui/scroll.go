@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"image"
 	"math"
 
+	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -43,13 +45,13 @@ func (s *Scroller) IsScrolling() bool { return s.dragging || s.showTicks > 0 }
 
 // Update updates scrolling using wheel + drag/touch, only if the pointer is inside viewport.
 // contentH is the full scrollable content height in pixels.
-func (s *Scroller) Update(ctx *Context, viewport Rect, contentH int) {
-	if viewport.W <= 0 || viewport.H <= 0 {
+func (s *Scroller) Update(ctx *Context, viewport image.Rectangle, contentH int) {
+	if viewport.Dx() <= 0 || viewport.Dy() <= 0 {
 		return
 	}
 
 	ptr := ctx.Pointer()
-	inside := viewport.Contains(ptr.X, ptr.Y)
+	inside := common.Contains(viewport, ptr.X, ptr.Y)
 
 	changed := false
 
@@ -84,7 +86,7 @@ func (s *Scroller) Update(ctx *Context, viewport Rect, contentH int) {
 		s.dragging = false
 	}
 
-	s.Clamp(viewport.H, contentH)
+	s.Clamp(viewport.Dy(), contentH)
 
 	if s.Scrollbar == ScrollbarOnMove {
 		if changed {
@@ -128,6 +130,7 @@ func (s *Scroller) DrawBar(dst *ebiten.Image, theme *Theme, viewportW, viewportH
 	case ScrollbarOnMove:
 		show = s.IsScrolling()
 	}
+
 	if !show {
 		return
 	}

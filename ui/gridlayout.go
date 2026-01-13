@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"image"
+
+	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -37,15 +40,20 @@ func NewGridLayout(theme *Theme) *GridLayout {
 func (l *GridLayout) Base() *Base     { return &l.base }
 func (l *GridLayout) Focusable() bool { return false }
 
-func (l *GridLayout) SetFrame(x, y, w int) { l.base.Rect = Rect{X: x, Y: y, W: w, H: l.base.Rect.H} }
-func (l *GridLayout) Measure() Rect        { return l.base.Rect }
+func (l *GridLayout) SetFrame(x, y, w int) {
+	l.base.Rect = image.Rect(x, y, x+w, y+l.base.Rect.Dy())
+}
+
+func (l *GridLayout) Measure() image.Rectangle {
+	return l.base.Rect
+}
+
 func (l *GridLayout) SetHeight(h int) {
 	if h < 0 {
 		h = 0
 	}
-	r := l.base.Rect
-	r.H = h
-	l.base.Rect = r
+
+	l.base.Rect = common.ChangeRectangleHeight(l.base.Rect, h)
 }
 
 func (l *GridLayout) Children() []Widget      { return l.children }
@@ -56,15 +64,12 @@ func (l *GridLayout) Clear()                  { l.children = nil }
 func (l *GridLayout) Update(ctx *Context) {
 	l.doLayout(ctx)
 
-	if l.base.Rect.H > 0 {
+	if l.base.Rect.Dy() > 0 {
 		l.Scroll.Update(ctx, l.base.Rect, l.contentH)
 		l.doLayout(ctx)
 	}
 
 	for _, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if !ch.Base().visible {
 			continue
 		}
@@ -79,7 +84,7 @@ func (l *GridLayout) doLayout(ctx *Context) {
 		cols = 2
 	}
 
-	innerW := vp.W - l.PadX*2
+	innerW := vp.Dx() - l.PadX*2
 	if innerW < 0 {
 		innerW = 0
 	}
@@ -91,11 +96,11 @@ func (l *GridLayout) doLayout(ctx *Context) {
 		}
 	}
 
-	x0 := vp.X + l.PadX
-	y0 := vp.Y + l.PadY
+	x0 := vp.Min.X + l.PadX
+	y0 := vp.Min.Y + l.PadY
 	x := x0
 	y := y0
-	if vp.H > 0 {
+	if vp.Dy() > 0 {
 		y -= l.Scroll.ScrollY
 	}
 
@@ -104,16 +109,13 @@ func (l *GridLayout) doLayout(ctx *Context) {
 	col := 0
 
 	for i, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if !ch.Base().visible {
 			continue
 		}
 		ch.SetFrame(x, y, cellW)
 		r := ch.Measure()
-		if r.H > rowMaxH {
-			rowMaxH = r.H
+		if r.Dy() > rowMaxH {
+			rowMaxH = r.Dy()
 		}
 
 		col++
@@ -132,9 +134,10 @@ func (l *GridLayout) doLayout(ctx *Context) {
 		}
 	}
 
-	if vp.H > 0 && contentH < vp.H {
-		contentH = vp.H
+	if vp.Dy() > 0 && contentH < vp.Dy() {
+		contentH = vp.Dy()
 	}
+
 	l.contentH = contentH
 }
 
@@ -143,11 +146,8 @@ func (l *GridLayout) Draw(ctx *Context, dst *ebiten.Image) {
 		return
 	}
 	vp := l.base.Rect
-	if vp.H <= 0 {
+	if vp.Dy() <= 0 {
 		for _, ch := range l.children {
-			if th, ok := any(ch).(Themeable); ok {
-				th.SetTheme(ctx.Theme)
-			}
 			if !ch.Base().visible {
 				continue
 			}
@@ -165,22 +165,19 @@ func (l *GridLayout) Draw(ctx *Context, dst *ebiten.Image) {
 	l.scratch.Clear()
 
 	for _, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if !ch.Base().visible {
 			continue
 		}
 		ch.Draw(ctx, l.scratch)
 	}
 
-	part := l.scratch.SubImage(vp.ImageRect()).(*ebiten.Image)
+	part := l.scratch.SubImage(vp).(*ebiten.Image)
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(vp.X), float64(vp.Y))
+	op.GeoM.Translate(float64(vp.Min.X), float64(vp.Min.Y))
 	dst.DrawImage(part, op)
 
-	sub := dst.SubImage(vp.ImageRect()).(*ebiten.Image)
-	l.Scroll.DrawBar(sub, ctx.Theme, vp.W, vp.H, l.contentH)
+	sub := dst.SubImage(vp).(*ebiten.Image)
+	l.Scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.contentH)
 }
 
 func (l *GridLayout) DrawOverlay(ctx *Context, dst *ebiten.Image) {
@@ -188,9 +185,6 @@ func (l *GridLayout) DrawOverlay(ctx *Context, dst *ebiten.Image) {
 		return
 	}
 	for _, ch := range l.children {
-		if th, ok := any(ch).(Themeable); ok {
-			th.SetTheme(ctx.Theme)
-		}
 		if ow, ok := any(ch).(OverlayWidget); ok && ow.OverlayActive() {
 			ow.DrawOverlay(ctx, dst)
 		}
