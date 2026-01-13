@@ -61,6 +61,7 @@ func (c *Container) Draw(ctx *Context, dst *ebiten.Image) {
 		if c.base.Invalid {
 			borderCol = ctx.Theme.ErrorBorder
 		}
+
 		drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
 	}
 

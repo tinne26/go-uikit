@@ -67,32 +67,9 @@ func (c *Checkbox) Update(ctx *Context) {
 }
 
 func (c *Checkbox) Draw(ctx *Context, dst *ebiten.Image) {
-	c.theme = ctx.Theme
-	if c.base.Rect.H == 0 {
-		c.base.SetFrame(ctx.Theme, c.base.Rect.X, c.base.Rect.Y, c.base.Rect.W)
-	}
+	c.base.Draw(ctx, dst)
 
 	r := c.base.ControlRect(ctx.Theme)
-
-	// Surface
-	bg := ctx.Theme.Surface
-	if !c.base.Enabled {
-		bg = ctx.Theme.SurfacePressed
-	} else if c.base.pressed {
-		bg = ctx.Theme.SurfacePressed
-	} else if c.base.hovered {
-		bg = ctx.Theme.SurfaceHover
-	}
-	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
-	borderCol := ctx.Theme.Border
-	if c.base.Invalid {
-		borderCol = ctx.Theme.ErrorBorder
-	}
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
-
-	if c.base.focused && c.base.Enabled {
-		drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
-	}
 
 	// Checkbox box (left)
 	content := r.Inset(ctx.Theme.PadX, ctx.Theme.PadY)
@@ -136,11 +113,6 @@ func (c *Checkbox) Draw(ctx *Context, dst *ebiten.Image) {
 	ctx.Text.SetColor(col)
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.Draw(dst, c.label, tx, baselineY)
-
-	err := c.base.ErrorRect(ctx.Theme)
-	if c.base.Invalid {
-		drawErrorText(ctx, dst, err, c.base.ErrorText)
-	}
 }
 
 // SetTheme allows layouts to provide Theme before SetFrame is called.

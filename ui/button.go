@@ -68,38 +68,7 @@ func (b *Button) Update(ctx *Context) {
 }
 
 func (b *Button) Draw(ctx *Context, dst *ebiten.Image) {
-	b.theme = ctx.Theme
-	if b.base.Rect.H == 0 {
-		b.base.SetFrame(ctx.Theme, b.base.Rect.X, b.base.Rect.Y, b.base.Rect.W)
-	}
-
-	r := b.base.ControlRect(ctx.Theme)
-
-	// Surface
-	bg := ctx.Theme.Surface
-	if !b.base.Enabled {
-		bg = ctx.Theme.SurfacePressed
-	} else if b.base.pressed {
-		bg = ctx.Theme.SurfacePressed
-	} else if b.base.hovered {
-		bg = ctx.Theme.SurfaceHover
-	}
-	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
-
-	// Border
-	border := ctx.Theme.Border
-	if !b.base.Enabled {
-		border = ctx.Theme.Disabled
-	}
-	if b.base.Invalid {
-		border = ctx.Theme.ErrorBorder
-	}
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, border)
-
-	// Focus ring
-	if b.base.focused && b.base.Enabled {
-		drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
-	}
+	r := b.base.Draw(ctx, dst)
 
 	// Centered label
 	met, _ := MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
@@ -116,11 +85,6 @@ func (b *Button) Draw(ctx *Context, dst *ebiten.Image) {
 	ctx.Text.SetColor(col)
 	ctx.Text.SetAlign(0) // Left
 	ctx.Text.Draw(dst, b.label, tx, baselineY)
-
-	err := b.base.ErrorRect(ctx.Theme)
-	if b.base.Invalid {
-		drawErrorText(ctx, dst, err, b.base.ErrorText)
-	}
 }
 
 // SetTheme allows layouts to provide Theme before SetFrame is called.

@@ -1,5 +1,9 @@
 package ui
 
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
 // Base contains shared widget state.
 // Height is usually Theme.ControlH, but can be overridden per widget (e.g. TextArea). External layout controls only X/Y/Width.
 type Base struct {
@@ -17,6 +21,8 @@ type Base struct {
 	hovered bool
 	pressed bool
 	focused bool
+
+	theme *Theme
 }
 
 func NewBase() Base {
@@ -81,3 +87,57 @@ func (b *Base) Focused() bool { return b.focused }
 
 func (b *Base) SetEnabled(v bool) { b.Enabled = v }
 func (b *Base) SetVisible(v bool) { b.Visible = v }
+
+func (c *Base) Draw(ctx *Context, dst *ebiten.Image) Rect {
+	c.theme = ctx.Theme
+	if c.Rect.H == 0 {
+		c.SetFrame(ctx.Theme, c.Rect.X, c.Rect.Y, c.Rect.W)
+	}
+
+	r := c.ControlRect(ctx.Theme)
+
+	// Surface
+	bg := ctx.Theme.Surface
+	if !c.Enabled {
+		bg = ctx.Theme.SurfacePressed
+	} else if c.pressed {
+		bg = ctx.Theme.SurfacePressed
+	} else if c.hovered {
+		bg = ctx.Theme.SurfaceHover
+	}
+
+	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
+
+	// Border
+	border := ctx.Theme.Border
+	if !c.Enabled {
+		border = ctx.Theme.Disabled
+	}
+	if c.Invalid {
+		border = ctx.Theme.ErrorBorder
+	}
+
+	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, border)
+
+	// Focus ring
+	if c.focused && c.Enabled {
+		drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
+	}
+
+	// Error
+	err := c.ErrorRect(ctx.Theme)
+	if c.Invalid {
+		drawErrorText(ctx, dst, err, c.ErrorText)
+	}
+
+	return r
+}
+
+// SetTheme allows layouts to provide Theme before SetFrame is called.
+func (c *Base) SetTheme(theme *Theme) {
+	c.theme = theme
+}
+
+func (c *Base) Theme() *Theme {
+	return c.theme
+}

@@ -78,12 +78,8 @@ func (s *Select) SetFrame(x, y, w int) {
 
 func (s *Select) Measure() Rect { return s.base.Rect }
 
-func (s *Select) controlRect(ctx *Context) Rect {
-	return s.base.ControlRect(ctx.Theme)
-}
-
 func (s *Select) listRect(ctx *Context) Rect {
-	ctrl := s.controlRect(ctx)
+	ctrl := s.base.ControlRect(ctx.Theme)
 	n := len(s.options)
 	max := s.MaxVisible
 	if max <= 0 {
@@ -97,7 +93,7 @@ func (s *Select) listRect(ctx *Context) Rect {
 }
 
 func (s *Select) HitTest(ctx *Context, x, y int) bool {
-	ctrl := s.controlRect(ctx)
+	ctrl := s.base.ControlRect(ctx.Theme)
 	if ctrl.Contains(x, y) {
 		return true
 	}
@@ -116,7 +112,7 @@ func (s *Select) Update(ctx *Context) {
 		return
 	}
 
-	ctrl := s.controlRect(ctx)
+	ctrl := s.base.ControlRect(ctx.Theme)
 	list := s.listRect(ctx)
 
 	// Toggle open on click in control.
@@ -159,35 +155,12 @@ func (s *Select) Update(ctx *Context) {
 }
 
 func (s *Select) Draw(ctx *Context, dst *ebiten.Image) {
-	s.theme = ctx.Theme
-	if s.base.Rect.H == 0 {
-		s.base.SetFrame(ctx.Theme, s.base.Rect.X, s.base.Rect.Y, s.base.Rect.W)
-	}
+	s.base.Draw(ctx, dst)
 
-	ctrl := s.controlRect(ctx)
-
-	bg := ctx.Theme.Surface
-	if !s.base.Enabled {
-		bg = ctx.Theme.SurfacePressed
-	} else if s.base.pressed {
-		bg = ctx.Theme.SurfacePressed
-	} else if s.base.hovered {
-		bg = ctx.Theme.SurfaceHover
-	}
-	drawRoundedRect(dst, ctrl, ctx.Theme.Radius, bg)
-
-	borderCol := ctx.Theme.Border
-	if s.base.Invalid {
-		borderCol = ctx.Theme.ErrorBorder
-	}
-	drawRoundedBorder(dst, ctrl, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
-
-	if s.base.focused && s.base.Enabled {
-		drawFocusRing(dst, ctrl, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
-	}
+	r := s.base.ControlRect(ctx.Theme)
 
 	met, _ := MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-	baselineY := ctrl.Y + (ctrl.H-met.Height)/2 + met.Ascent
+	baselineY := r.Y + (r.H-met.Height)/2 + met.Ascent
 
 	val := s.Value()
 	if val == "" {
@@ -195,18 +168,12 @@ func (s *Select) Draw(ctx *Context, dst *ebiten.Image) {
 	}
 	ctx.Text.SetColor(ctx.Theme.Text)
 	ctx.Text.SetAlign(0)
-	ctx.Text.Draw(dst, val, ctrl.X+ctx.Theme.PadX, baselineY)
+	ctx.Text.Draw(dst, val, r.X+ctx.Theme.PadX, baselineY)
 
 	// Chevron
 	chev := "▾"
 	cw := MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, chev)
-	ctx.Text.Draw(dst, chev, ctrl.Right()-ctx.Theme.PadX-cw, baselineY)
-
-	// Validation message
-	err := s.base.ErrorRect(ctx.Theme)
-	if s.base.Invalid {
-		drawErrorText(ctx, dst, err, s.base.ErrorText)
-	}
+	ctx.Text.Draw(dst, chev, r.Right()-ctx.Theme.PadX-cw, baselineY)
 }
 
 func (s *Select) DrawOverlay(ctx *Context, dst *ebiten.Image) {

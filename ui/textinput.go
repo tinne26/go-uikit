@@ -137,35 +137,11 @@ func (t *TextInput) backspace() {
 }
 
 func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
+	t.base.Draw(ctx, dst)
+
 	t.theme = ctx.Theme
-	if t.base.Rect.H == 0 {
-		t.base.SetFrame(ctx.Theme, t.base.Rect.X, t.base.Rect.Y, t.base.Rect.W)
-	}
 
 	r := t.base.ControlRect(ctx.Theme)
-
-	// Surface
-	bg := ctx.Theme.Surface
-	if !t.base.Enabled {
-		bg = ctx.Theme.SurfacePressed
-	} else if t.base.pressed {
-		bg = ctx.Theme.SurfacePressed
-	} else if t.base.hovered {
-		bg = ctx.Theme.SurfaceHover
-	}
-	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
-
-	// Border
-	borderCol := ctx.Theme.Border
-	if t.base.Invalid {
-		borderCol = ctx.Theme.ErrorBorder
-	}
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
-
-	// Focus ring
-	if t.base.focused && t.base.Enabled {
-		drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
-	}
 
 	content := r.Inset(ctx.Theme.PadX, ctx.Theme.PadY)
 
@@ -210,11 +186,6 @@ func (t *TextInput) Draw(ctx *Context, dst *ebiten.Image) {
 			}
 			vector.DrawFilledRect(dst, float32(cx), float32(cy), float32(t.CaretWidthPx), float32(caretH), ctx.Theme.Caret, false)
 		}
-	}
-
-	err := t.base.ErrorRect(ctx.Theme)
-	if t.base.Invalid {
-		drawErrorText(ctx, dst, err, t.base.ErrorText)
 	}
 }
 
