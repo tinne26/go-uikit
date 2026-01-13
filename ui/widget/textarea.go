@@ -231,32 +231,11 @@ func (t *TextArea) Draw(ctx *ui.Context, dst *ebiten.Image) {
 		t.SetFrame(t.base.Rect.X, t.base.Rect.Y, t.base.Rect.W)
 	}
 
-	ctrl, content := t.controlAndContentRects(ctx)
+	r, content := t.controlAndContentRects(ctx)
 
-	// Surface
-	bg := ctx.Theme.Surface
-	if !t.base.IsEnabled() {
-		bg = ctx.Theme.SurfacePressed
-	} else if t.base.Pressed() {
-		bg = ctx.Theme.SurfacePressed
-	} else if t.base.Hovered() {
-		bg = ctx.Theme.SurfaceHover
-	}
-
-	t.base.DrawRoundedRect(dst, ctrl, ctx.Theme.Radius, bg)
-
-	// Border (red when invalid)
-	borderCol := ctx.Theme.Border
-	if ok, _ := t.base.IsInvalid(); ok {
-		borderCol = ctx.Theme.ErrorBorder
-	}
-
-	t.base.DrawRoundedBorder(dst, ctrl, ctx.Theme.Radius, ctx.Theme.BorderW, borderCol)
-
-	// Focus ring
-	if t.base.Focused() && t.base.IsEnabled() {
-		//drawFocusRing(dst, ctrl, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
-	}
+	t.base.DrawSurfece(ctx, dst, r)
+	t.base.DrawBoder(ctx, dst, r)
+	t.base.DrawFocus(ctx, dst, r)
 
 	// Clip to content area
 	sub := dst.SubImage(content.ImageRect()).(*ebiten.Image)
@@ -339,11 +318,7 @@ func (t *TextArea) Draw(ctx *ui.Context, dst *ebiten.Image) {
 		}
 	}
 
-	// Validation message
-	//if t.base.Invalid && t.base.ErrorText != "" {
-	//err := t.errorRect(ctx)
-	//	drawErrorText(ctx, dst, err, t.base.ErrorText)
-	//}
+	t.base.DrawInvalid(ctx, dst, r)
 }
 
 // SetTheme allows layouts to provide Theme before SetFrame is called.

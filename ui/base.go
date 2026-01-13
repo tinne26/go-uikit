@@ -140,14 +140,15 @@ func (c *Base) Draw(ctx *Context, dst *ebiten.Image) Rect {
 		c.SetFrame(ctx.Theme, c.Rect.X, c.Rect.Y, c.Rect.W)
 	}
 
-	c.DrawSurfece(ctx, dst)
-	c.DrawBoder(ctx, dst)
-	c.DrawFocus(ctx, dst)
-	c.DrawInvalid(ctx, dst)
+	r := c.ControlRect(ctx.Theme)
+	c.DrawSurfece(ctx, dst, r)
+	c.DrawBoder(ctx, dst, r)
+	c.DrawFocus(ctx, dst, r)
+	c.DrawInvalid(ctx, dst, r)
 	return c.ControlRect(ctx.Theme)
 }
 
-func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image) {
+func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image, r Rect) {
 	if !c.cfg.DrawSurface {
 		return
 	}
@@ -161,11 +162,10 @@ func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image) {
 		bg = ctx.Theme.SurfaceHover
 	}
 
-	r := c.ControlRect(ctx.Theme)
 	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
 }
 
-func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image) {
+func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r Rect) {
 	if !c.cfg.DrawBorder {
 		return
 	}
@@ -178,11 +178,10 @@ func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image) {
 		border = ctx.Theme.ErrorBorder
 	}
 
-	r := c.ControlRect(ctx.Theme)
 	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, border)
 }
 
-func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image) {
+func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r Rect) {
 	if !c.cfg.DrawFocus {
 		return
 	}
@@ -191,11 +190,10 @@ func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image) {
 		return
 	}
 
-	r := c.ControlRect(ctx.Theme)
 	drawFocusRing(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingGap, ctx.Theme.FocusRingW, ctx.Theme.Focus)
 }
 
-func (c *Base) DrawInvalid(ctx *Context, dst *ebiten.Image) {
+func (c *Base) DrawInvalid(ctx *Context, dst *ebiten.Image, r Rect) {
 	if !c.cfg.DrawInvalid {
 		return
 	}
