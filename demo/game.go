@@ -77,14 +77,13 @@ func (g *Game) initOnce() {
 	f := mustFont()
 	g.renderer.SetFont(f)
 
-	// Base theme in logical pixels. Actual rendering scale is handled by renderer.SetScale.
 	g.theme = uikit.NewTheme(f, 20)
 
 	g.ctx = uikit.NewContext(g.theme, g.renderer, g.ime)
 	g.stack = uikit.NewStackLayout(g.theme)
 	g.grid = uikit.NewGridLayout(g.theme)
 
-	g.title = widget.NewLabel(g.theme, "UI Kit Demo — consistent proportions (Theme-driven)")
+	g.title = widget.NewLabel(g.theme, "UI Kit Demo")
 	g.focusInfo = widget.NewLabel(g.theme, "")
 	g.exampleLabel = widget.NewLabel(g.theme, "Label example: static helper text")
 
@@ -105,25 +104,24 @@ func (g *Game) initOnce() {
 
 	g.box = widget.NewContainer(g.theme)
 	g.box.OnDraw = func(ctx *uikit.Context, dst *ebiten.Image, content image.Rectangle) {
-		// Example: draw custom content using the same text renderer/theme.
+
 		lines := []string{
 			"Custom container (user content)",
 			"",
 			"Select value: " + g.sel.Value(),
 			"Search text: " + g.txtB.Text(),
 			"TextArea chars: " + fmt.Sprintf("%d", len([]rune(g.ta.Text()))),
-			"",
-			"Rules demo:",
-			"- Select: Option A is INVALID, others are OK.",
-			"- Search: required (empty is invalid).",
-			"- TextArea: required (empty is invalid).",
 		}
 
+		dst = dst.SubImage(content).(*ebiten.Image)
+
 		met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-		y := content.Min.Y + met.Ascent
+		y := (content.Min.Y) + met.Ascent
+		x := content.Min.X
+
 		ctx.Text.SetColor(ctx.Theme.MutedText)
 		for _, ln := range lines {
-			ctx.Text.Draw(dst, ln, content.Min.X, y)
+			ctx.Text.Draw(dst, ln, x, y)
 			y += met.Height
 		}
 	}
