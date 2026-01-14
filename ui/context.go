@@ -280,7 +280,6 @@ func (c *Context) widgetHit(w Widget, x, y int) bool {
 		return h.HitTest(c, x, y)
 	}
 
-	// Default: only the control area is interactive (not the error message line).
 	return common.Contains(w.Base().ControlRect(c.Theme), x, y)
 }
 
@@ -299,14 +298,11 @@ func (c *Context) topmostAt(x, y int) Widget {
 }
 
 func (c *Context) Update() {
-	// Snapshot input once per frame
 	c.readPointerSnapshot()
 	c.root.Update(c)
 
-	// Rebuild flat list for hit-testing, focus traversal, and event dispatch.
 	c.rebuildWidgets()
 
-	// Keyboard focus traversal (desktop)
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
 			c.focusPrev()
@@ -315,29 +311,20 @@ func (c *Context) Update() {
 		}
 	}
 
-	// IME behavior: any tap/click outside a text input closes the IME.
-	// We decide focus target on pointer down using a "topmost hit" strategy.
 	if c.ptr.IsJustDown {
 		w := c.topmostAt(c.ptr.X, c.ptr.Y)
-		if w != nil {
-			if tw, ok := w.(TextWidget); ok && tw.WantsIME() {
-				c.SetFocus(w)
-			} else {
-				// If clicked non-text widget, clear focus (closes IME).
-				c.SetFocus(nil)
-			}
+		if w != nil && w.Focusable() && w.Base().IsEnabled() {
+			c.SetFocus(w)
 		} else {
 			c.SetFocus(nil)
 		}
 	}
 
-	// Pointer down chooses a single target (topmost), prevents underlying widgets from also receiving presses.
 	var target Widget
 	if c.ptr.IsJustDown {
 		target = c.topmostAt(c.ptr.X, c.ptr.Y)
 	}
 
-	// Hover only for mouse: topmost under pointer.
 	var hoverTarget Widget
 	if !c.ptr.IsTouch {
 		hoverTarget = c.topmostAt(c.ptr.X, c.ptr.Y)

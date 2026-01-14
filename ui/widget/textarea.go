@@ -317,3 +317,12 @@ func (t *TextArea) Draw(ctx *ui.Context, dst *ebiten.Image) {
 
 	t.base.DrawInvalid(ctx, dst, r)
 }
+
+func (t *TextArea) HitTest(ctx *ui.Context, x, y int) bool {
+	ctrl, _ := t.controlAndContentRects(ctx)
+	if common.Contains(ctrl, x, y) {
+		return true
+	}
+
+	return false
+}
