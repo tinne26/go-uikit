@@ -105,7 +105,7 @@ func (g *Game) initOnce() {
 	g.sel = widget.NewSelect(g.theme, []string{"Option A", "Option B", "Option C", "Option D", "Option E", "Option F"})
 
 	g.box = widget.NewContainer(g.theme)
-	g.box.SetHeight(1000)
+	g.box.SetHeight(140)
 	g.box.OnDraw = func(ctx *uikit.Context, dst *ebiten.Image, content image.Rectangle) {
 
 		lines := []string{
@@ -171,38 +171,6 @@ func (g *Game) initOnce() {
 
 	g.stack.SetChildren(contentWidgets)
 	g.grid.SetChildren(contentWidgets)
-
-}
-
-func (g *Game) Layout(outW, outH int) (int, int) {
-	g.initOnce()
-
-	g.winW, g.winH = outW, outH
-
-	dev := ebiten.DeviceScaleFactor()
-	if dev <= 0 {
-		dev = 1
-	}
-
-	// Optional: make UI a bit larger on small screens.
-	uiScale := 1.0
-	minSide := float64(outW)
-	if float64(outH) < minSide {
-		minSide = float64(outH)
-	}
-	if minSide <= 520 {
-		uiScale = 1.5
-	} else if minSide <= 720 {
-		uiScale = 1.25
-	}
-
-	g.scale = uikit.Scale{Device: dev, UI: uiScale}
-	g.ctx.SetScale(g.scale)
-
-	// IMPORTANT: renderer scale must stay 1 (do not double scale).
-	g.renderer.SetScale(1)
-
-	return outW, outH
 }
 
 func (g *Game) Update() error {
@@ -211,38 +179,12 @@ func (g *Game) Update() error {
 	title := fmt.Sprintf("UI Kit Demo (TPS: %0.2f - FPS: %0.2f)", ebiten.ActualTPS(), ebiten.ActualFPS())
 	g.title.SetText(title)
 
-	// Layout constants
-	x := g.theme.SpaceL
-	y := g.theme.SpaceL
-	w := g.winW - g.theme.SpaceL*2
-	if w < 0 {
-		w = 0
-	}
-
-	// Header
-	g.ctx.Root().SetFrame(x, y, w)
-	y += g.title.Measure(false).Dy() + g.theme.SpaceS
-
 	fw := g.ctx.Focused()
 	if fw == nil {
 		g.focusInfo.SetText("Focused: (none) — tap a widget or TAB")
 	} else {
 		g.focusInfo.SetText(fmt.Sprintf("Focused: %T", fw))
 	}
-
-	y += g.focusInfo.Measure(false).Dy() + g.theme.SpaceM
-
-	// Scrollable viewport for the content widgets
-	footerH := g.footer.Measure(false).Dy()
-	viewportH := g.winH - y - g.theme.SpaceM - footerH - g.theme.SpaceM
-	if viewportH < g.theme.ControlH {
-		viewportH = g.theme.ControlH
-	}
-
-	g.stack.SetFrame(x, y, w)
-	g.stack.SetHeight(viewportH)
-	g.grid.SetFrame(x, y, w)
-	g.grid.SetHeight(viewportH)
 
 	// Demo validations
 	if g.txtB.Text() == "" {
@@ -286,4 +228,39 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{20, 22, 26, 255})
 	g.ctx.Draw(screen)
+}
+
+func (g *Game) Layout(outW, outH int) (int, int) {
+	m := ebiten.Monitor()
+	if m == nil {
+		return 0, 0
+	}
+
+	g.initOnce()
+	g.winW, g.winH = outW, outH
+
+	dev := m.DeviceScaleFactor()
+	if dev <= 0 {
+		dev = 1
+	}
+
+	// Optional: make UI a bit larger on small screens.
+	uiScale := 1.0
+	minSide := float64(outW)
+	if float64(outH) < minSide {
+		minSide = float64(outH)
+	}
+	if minSide <= 520 {
+		uiScale = 1.5
+	} else if minSide <= 720 {
+		uiScale = 1.25
+	}
+
+	g.scale = uikit.Scale{Device: dev, UI: uiScale}
+	g.ctx.SetScale(g.scale)
+
+	// IMPORTANT: renderer scale must stay 1 (do not double scale).
+	g.renderer.SetScale(1)
+
+	return outW, outH
 }

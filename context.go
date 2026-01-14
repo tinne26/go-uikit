@@ -28,6 +28,8 @@ func NewContext(theme *Theme, root Layout, renderer *etxt.Renderer, ime IMEBridg
 	renderer.SetFont(theme.Font)
 	renderer.SetSize(float64(theme.FontPx))
 
+	root.SetPadding(theme.SpaceL, theme.SpaceL)
+
 	return &Context{
 		Theme:       theme,
 		Text:        renderer,
@@ -42,15 +44,14 @@ func NewContext(theme *Theme, root Layout, renderer *etxt.Renderer, ime IMEBridg
 }
 
 // Root returns the root widget (typically a Layout).
-func (c *Context) Root() Layout { return c.root }
-
-// SetRoot replaces the root widget.
-func (c *Context) SetRoot(l Layout) {
-	c.root = l
+func (c *Context) Root() Layout {
+	return c.root
 }
 
 // SetScale stores a scale value for the app. The default Context input space is logical pixels.
-func (c *Context) SetScale(s Scale) { c.Scale = s }
+func (c *Context) SetScale(s Scale) {
+	c.Scale = s
+}
 
 // SetIMEBridge sets/updates the IME bridge at runtime.
 // It also synchronizes the IME visibility with the currently focused widget.
@@ -362,9 +363,8 @@ func (c *Context) Draw(dst *ebiten.Image) {
 		return
 	}
 
+	c.root.SetHeight(dst.Bounds().Dy())
+	c.root.SetFrame(0, 0, dst.Bounds().Dx())
 	c.root.Draw(c, dst)
-	// Overlay pass delegated to root/layout
-	if ow, ok := any(c.root).(interface{ DrawOverlay(*Context, *ebiten.Image) }); ok {
-		ow.DrawOverlay(c, dst)
-	}
+	c.root.DrawOverlay(c, dst)
 }

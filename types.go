@@ -54,6 +54,9 @@ type Hittable interface {
 // Layout is a Widget that owns children.
 type Layout interface {
 	Widget
+	DrawOverlay(ctx *Context, dst *ebiten.Image)
+	SetHeight(int)
+	SetPadding(int, int)
 	Children() []Widget
 	SetChildren([]Widget)
 	Add(...Widget)

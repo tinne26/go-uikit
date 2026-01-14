@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"fmt"
 	"image/color"
 
 	"github.com/erparts/go-uikit"
@@ -13,13 +12,14 @@ type Stack struct {
 	uikit.Base
 	children []uikit.Widget
 
-	PadX int
-	PadY int
-	Gap  int
+	padX int
+	padY int
+	gap  int
 
 	Scroll uikit.Scroller
 
-	height int
+	height   int
+	contentH int
 
 	scratch    *ebiten.Image
 	background color.RGBA
@@ -32,13 +32,14 @@ func NewStack(theme *uikit.Theme) *Stack {
 	l.Base = uikit.NewBase(cfg)
 	l.Base.SetEnabled(true)
 	l.Base.HeightCaculator = func() int {
-		fmt.Println("getHe", l.height)
+		if l.height == 0 {
+			return l.contentH
+		}
+
 		return l.height
 	}
 
-	//l.PadX = theme.SpaceM
-	//l.PadY = theme.SpaceM
-	l.Gap = theme.SpaceS
+	l.gap = theme.SpaceS
 	l.Scroll = uikit.NewScroller()
 	return l
 }
@@ -50,21 +51,37 @@ func (l *Stack) SetHeight(h int) {
 	l.height = h
 }
 
-// Children management
-func (l *Stack) Children() []uikit.Widget      { return l.children }
-func (l *Stack) SetChildren(ws []uikit.Widget) { l.children = ws }
-func (l *Stack) Add(ws ...uikit.Widget)        { l.children = append(l.children, ws...) }
-func (l *Stack) Clear()                        { l.children = nil }
+func (l *Stack) SetPadding(x, y int) {
+	l.padX = x
+	l.padY = y
+}
+
+func (l *Stack) SeGap(v int) {
+	l.gap = v
+}
+
+func (l *Stack) Children() []uikit.Widget {
+	return l.children
+}
+func (l *Stack) SetChildren(ws []uikit.Widget) {
+	l.children = ws
+}
+func (l *Stack) Add(ws ...uikit.Widget) {
+	l.children = append(l.children, ws...)
+}
+
+func (l *Stack) Clear() {
+	l.children = nil
+}
 
 func (l *Stack) Update(ctx *uikit.Context) {
 	l.doLayout(ctx)
 
 	r := l.Measure(false)
 
-	fmt.Println("---", l.height, r.Dy())
 	// Scroll input only when height is limited
 	if r.Dy() > 0 {
-		l.Scroll.Update(ctx, r, l.height)
+		l.Scroll.Update(ctx, r, l.contentH)
 		l.doLayout(ctx)
 	}
 
@@ -79,9 +96,9 @@ func (l *Stack) Update(ctx *uikit.Context) {
 
 func (l *Stack) doLayout(ctx *uikit.Context) {
 	vp := l.Measure(false)
-	x0 := vp.Min.X + l.PadX
-	y0 := vp.Min.Y + l.PadY
-	w0 := vp.Dx() - l.PadX*2
+	x0 := vp.Min.X + l.padX
+	y0 := vp.Min.Y + l.padY
+	w0 := vp.Dx() - l.padX*2
 	if w0 < 0 {
 		w0 = 0
 	}
@@ -91,7 +108,7 @@ func (l *Stack) doLayout(ctx *uikit.Context) {
 		y -= l.Scroll.ScrollY
 	}
 
-	contentH := l.PadY * 2
+	contentH := l.padY * 2
 	for i, ch := range l.children {
 		if !ch.IsVisible() {
 			continue
@@ -101,9 +118,9 @@ func (l *Stack) doLayout(ctx *uikit.Context) {
 		r := ch.Measure(true)
 		contentH += r.Dy()
 		if i != len(l.children)-1 {
-			contentH += l.Gap
+			contentH += l.gap
 		}
-		y += r.Dy() + l.Gap
+		y += r.Dy() + l.gap
 	}
 
 	// At least viewport height so scrollbar math is stable
@@ -111,7 +128,7 @@ func (l *Stack) doLayout(ctx *uikit.Context) {
 		contentH = vp.Dy()
 	}
 
-	l.SetHeight(contentH)
+	l.contentH = contentH
 }
 
 func (l *Stack) Draw(ctx *uikit.Context, dst *ebiten.Image) {
@@ -120,12 +137,13 @@ func (l *Stack) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	}
 
 	vp := l.Measure(false)
+
 	if vp.Dy() <= 0 {
-		// Unlimited: draw directly
 		for _, ch := range l.children {
 			if !ch.IsVisible() {
 				continue
 			}
+
 			ch.Draw(ctx, dst)
 		}
 
@@ -155,16 +173,16 @@ func (l *Stack) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	op.GeoM.Translate(float64(vp.Min.X), float64(vp.Min.Y))
 	dst.DrawImage(part, op)
 
-	// Scrollbar inside viewport (draw on clipped dst region)
 	sub := dst.SubImage(vp).(*ebiten.Image)
-	l.Scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.height)
 
+	l.Scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.contentH)
 }
 
 func (l *Stack) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 	if !l.IsVisible() {
 		return
 	}
+
 	// Overlay should escape clipping -> draw on dst (not on subimage)
 	for _, ch := range l.children {
 		if ow, ok := any(ch).(uikit.OverlayWidget); ok && ow.OverlayActive() {

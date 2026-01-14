@@ -9,30 +9,23 @@ import (
 type Grid struct {
 	uikit.Base
 	children []uikit.Widget
+	scroll   uikit.Scroller
 
-	Columns int
-
-	PadX int
-	PadY int
-	GapX int
-	GapY int
-
-	Scroll uikit.Scroller
-
-	height int
-
+	columns int
+	padX    int
+	padY    int
+	gapX    int
+	gapY    int
+	height  int
 	scratch *ebiten.Image
 }
 
 func NewGrid(theme *uikit.Theme) *Grid {
-
 	l := &Grid{}
-	l.Columns = 2
-	//l.PadX = theme.SpaceM
-	//l.PadY = theme.SpaceM
-	l.GapX = theme.SpaceS
-	l.GapY = theme.SpaceS
-	l.Scroll = uikit.NewScroller()
+	l.columns = 2
+	l.gapX = theme.SpaceS
+	l.gapY = theme.SpaceS
+	l.scroll = uikit.NewScroller()
 
 	cfg := uikit.NewWidgetBaseConfig(theme)
 	l.Base = uikit.NewBase(cfg)
@@ -49,16 +42,41 @@ func (l *Grid) SetHeight(h int) {
 	l.height = h
 }
 
-func (l *Grid) Children() []uikit.Widget      { return l.children }
-func (l *Grid) SetChildren(ws []uikit.Widget) { l.children = ws }
-func (l *Grid) Add(ws ...uikit.Widget)        { l.children = append(l.children, ws...) }
-func (l *Grid) Clear()                        { l.children = nil }
+func (l *Grid) SetPadding(x, y int) {
+	l.padX = x
+	l.padY = y
+}
+
+func (l *Grid) SetGap(x, y int) {
+	l.gapX = x
+	l.gapY = y
+}
+
+func (l *Grid) SetColumns(c int) {
+	l.columns = c
+}
+
+func (l *Grid) Children() []uikit.Widget {
+	return l.children
+}
+
+func (l *Grid) SetChildren(ws []uikit.Widget) {
+	l.children = ws
+}
+
+func (l *Grid) Add(ws ...uikit.Widget) {
+	l.children = append(l.children, ws...)
+}
+
+func (l *Grid) Clear() {
+	l.children = nil
+}
 
 func (l *Grid) Update(ctx *uikit.Context) {
 	l.doLayout(ctx)
 
 	if l.Measure(false).Dy() > 0 {
-		l.Scroll.Update(ctx, l.Measure(false), l.height)
+		l.scroll.Update(ctx, l.Measure(false), l.height)
 		l.doLayout(ctx)
 	}
 
@@ -72,32 +90,32 @@ func (l *Grid) Update(ctx *uikit.Context) {
 
 func (l *Grid) doLayout(ctx *uikit.Context) {
 	vp := l.Measure(false)
-	cols := l.Columns
+	cols := l.columns
 	if cols <= 0 {
 		cols = 2
 	}
 
-	innerW := vp.Dx() - l.PadX*2
+	innerW := vp.Dx() - l.padX*2
 	if innerW < 0 {
 		innerW = 0
 	}
 	cellW := innerW
 	if cols > 0 {
-		cellW = (innerW - (cols-1)*l.GapX) / cols
+		cellW = (innerW - (cols-1)*l.gapX) / cols
 		if cellW < 0 {
 			cellW = 0
 		}
 	}
 
-	x0 := vp.Min.X + l.PadX
-	y0 := vp.Min.Y + l.PadY
+	x0 := vp.Min.X + l.padX
+	y0 := vp.Min.Y + l.padY
 	x := x0
 	y := y0
 	if vp.Dy() > 0 {
-		y -= l.Scroll.ScrollY
+		y -= l.scroll.ScrollY
 	}
 
-	contentH := l.PadY * 2
+	contentH := l.padY * 2
 	rowMaxH := 0
 	col := 0
 
@@ -116,14 +134,14 @@ func (l *Grid) doLayout(ctx *uikit.Context) {
 		if col >= cols || last {
 			contentH += rowMaxH
 			if !last {
-				contentH += l.GapY
+				contentH += l.gapY
 			}
-			y += rowMaxH + l.GapY
+			y += rowMaxH + l.gapY
 			x = x0
 			col = 0
 			rowMaxH = 0
 		} else {
-			x += cellW + l.GapX
+			x += cellW + l.gapX
 		}
 	}
 
@@ -172,7 +190,7 @@ func (l *Grid) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	dst.DrawImage(part, op)
 
 	sub := dst.SubImage(vp).(*ebiten.Image)
-	l.Scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.height)
+	l.scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.height)
 }
 
 func (l *Grid) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {

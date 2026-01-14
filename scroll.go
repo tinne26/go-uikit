@@ -117,6 +117,7 @@ func (s *Scroller) DrawBar(dst *ebiten.Image, theme *Theme, viewportW, viewportH
 	if viewportW <= 0 || viewportH <= 0 {
 		return
 	}
+
 	if contentH <= viewportH {
 		return
 	}
@@ -147,7 +148,6 @@ func (s *Scroller) DrawBar(dst *ebiten.Image, theme *Theme, viewportW, viewportH
 		thumbY = int(math.Round(float64(trackH-thumbH) * float64(s.ScrollY) / float64(maxScroll)))
 	}
 
-	// IMPORTANT: SubImage keeps absolute coordinates.
 	ox := dst.Bounds().Min.X
 	oy := dst.Bounds().Min.Y
 
