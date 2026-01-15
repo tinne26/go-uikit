@@ -9,12 +9,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+type SelectOption struct {
+	Value any
+	Label string
+}
+
 // Select is a simple dropdown selector.
 // The dropdown is rendered as an overlay (does NOT change layout of other widgets).
 type Select struct {
 	uikit.Base
 
-	options []string
+	options []SelectOption
 	index   int
 
 	open bool
@@ -26,7 +31,7 @@ type Select struct {
 	MaxVisible int
 }
 
-func NewSelect(theme *uikit.Theme, options []string) *Select {
+func NewSelect(theme *uikit.Theme, options []SelectOption) *Select {
 	cfg := uikit.NewWidgetBaseConfig(theme)
 
 	return &Select{
@@ -37,11 +42,15 @@ func NewSelect(theme *uikit.Theme, options []string) *Select {
 	}
 }
 
-func (s *Select) Focusable() bool { return true }
+func (s *Select) Focusable() bool {
+	return true
+}
 
-func (s *Select) OverlayActive() bool { return s.open }
+func (s *Select) OverlayActive() bool {
+	return s.open
+}
 
-func (s *Select) SetOptions(opts []string) {
+func (s *Select) SetOptions(opts []SelectOption) {
 	s.options = opts
 	if s.index >= len(opts) {
 		s.index = 0
@@ -49,12 +58,24 @@ func (s *Select) SetOptions(opts []string) {
 
 }
 
-func (s *Select) Index() int { return s.index }
-func (s *Select) Value() string {
+func (s *Select) Index() int {
+	return s.index
+}
+
+func (s *Select) Value() any {
 	if s.index < 0 || s.index >= len(s.options) {
 		return ""
 	}
-	return s.options[s.index]
+
+	return s.options[s.index].Value
+}
+
+func (s *Select) Selected() (SelectOption, bool) {
+	if s.index < 0 || s.index >= len(s.options) {
+		return SelectOption{}, false
+	}
+
+	return s.options[s.index], true
 }
 
 func (s *Select) SetIndex(i int) {
@@ -62,13 +83,17 @@ func (s *Select) SetIndex(i int) {
 		s.index = 0
 		return
 	}
+
 	if i < 0 {
 		i = 0
 	}
+
 	if i >= len(s.options) {
 		i = len(s.options) - 1
 	}
+
 	s.index = i
+	s.Dispatch(uikit.Event{Widget: s, Type: uikit.EventValueChange})
 }
 
 func (s *Select) listRect(ctx *uikit.Context) image.Rectangle {
@@ -111,8 +136,6 @@ func (s *Select) Update(ctx *uikit.Context) {
 
 	list := s.listRect(ctx)
 
-	//func (c *Context) Pointer() (x, y int, down, justDown, justUp, isTouch bool) {
-
 	ptr := ctx.Pointer()
 
 	// Toggle open on click in control.
@@ -126,7 +149,7 @@ func (s *Select) Update(ctx *uikit.Context) {
 			row := (ptr.Y - list.Min.Y) / ctx.Theme.ControlH
 			idx := s.scroll + row
 			if idx >= 0 && idx < len(s.options) {
-				s.index = idx
+				s.SetIndex(idx)
 			}
 			s.open = false
 		} else if !common.Contains(r, ptr.X, ptr.Y) {
@@ -162,15 +185,13 @@ func (s *Select) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
 	baselineY := r.Min.Y + (r.Dy()-met.Height)/2 + met.Ascent
 
-	val := s.Value()
-	if val == "" {
-		val = "—"
-	}
+	val, _ := s.Selected()
+	label := val.Label
+
 	ctx.Text.SetColor(ctx.Theme.Text)
 	ctx.Text.SetAlign(0)
-	ctx.Text.Draw(dst, val, r.Min.X+ctx.Theme.PadX, baselineY)
+	ctx.Text.Draw(dst, label, r.Min.X+ctx.Theme.PadX, baselineY)
 
-	// Chevron
 	chev := "▾"
 	cw := uikit.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, chev)
 	ctx.Text.Draw(dst, chev, r.Max.X-ctx.Theme.PadX-cw, baselineY)
@@ -204,6 +225,6 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 		bY := row.Min.Y + (row.Dy()-met.Height)/2 + met.Ascent
 		ctx.Text.SetColor(ctx.Theme.Text)
 		ctx.Text.SetAlign(0)
-		ctx.Text.Draw(dst, s.options[idx], row.Min.X+ctx.Theme.PadX, bY)
+		ctx.Text.Draw(dst, s.options[idx].Label, row.Min.X+ctx.Theme.PadX, bY)
 	}
 }

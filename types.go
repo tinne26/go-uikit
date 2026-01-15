@@ -25,6 +25,9 @@ type Widget interface {
 	Measure(bool) image.Rectangle
 	Update(ctx *Context)
 	Draw(ctx *Context, dst *ebiten.Image)
+
+	On(t EventType, cb EventHandler, clear bool)
+	Dispatch(e Event)
 }
 
 // OverlayWidget can draw an overlay above all other widgets (e.g. Select dropdown).

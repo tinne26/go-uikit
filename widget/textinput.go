@@ -2,12 +2,14 @@ package widget
 
 import (
 	"math"
+	"time"
 
 	"github.com/erparts/go-uikit"
 	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/tinne26/etxt"
 )
 
 // TextInput is a single-line input box (no label).
@@ -15,149 +17,135 @@ import (
 type TextInput struct {
 	uikit.Base
 
-	// Value / defaults
-	text                 string
-	DefaultText          string
-	RestoreDefaultOnBlur bool
-
+	text        string
 	placeholder string
-
-	// Caret config is exclusive to TextInput, as requested.
-	CaretWidthPx  int
-	CaretBlinkMs  int
-	CaretMarginPx int
-
-	caretTick int
+	caretTick   int
 }
 
 func NewTextInput(theme *uikit.Theme, placeholder string) *TextInput {
 	cfg := uikit.NewWidgetBaseConfig(theme)
 
-	return &TextInput{
-		Base:          uikit.NewBase(cfg),
-		placeholder:   placeholder,
-		CaretWidthPx:  2,
-		CaretBlinkMs:  600,
-		CaretMarginPx: 0,
+	w := &TextInput{
+		placeholder: placeholder,
 	}
+
+	w.Base = uikit.NewBase(cfg)
+	return w
 }
 
-func (t *TextInput) Focusable() bool { return true }
-func (t *TextInput) WantsIME() bool  { return true }
-
-func (t *TextInput) Text() string { return t.text }
-
-// SetText sets the current value (does not change DefaultText).
-func (t *TextInput) SetText(s string) { t.text = s }
-
-// SetDefault sets DefaultText and also resets the current value to it.
-func (t *TextInput) SetDefault(s string) {
-	t.DefaultText = s
-	t.text = s
+func (w *TextInput) Focusable() bool {
+	return true
 }
 
-func (t *TextInput) Reset() { t.text = t.DefaultText }
-
-// HandleEvent allows focus transitions to apply policies (default restore).
-func (t *TextInput) HandleEvent(ctx *uikit.Context, e uikit.Event) {
-	if e.Type == uikit.EventFocusLost && t.RestoreDefaultOnBlur && t.text == "" {
-		t.text = t.DefaultText
-	}
+func (w *TextInput) WantsIME() bool {
+	return true
 }
 
-func (t *TextInput) Update(ctx *uikit.Context) {
-	r := t.Measure(false)
+func (w *TextInput) Text() string {
+	return w.text
+}
+
+func (w *TextInput) SetText(s string) {
+	w.text = s
+	w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventValueChange})
+}
+
+func (w *TextInput) AppendText(s string) {
+	w.SetText(w.Text() + s)
+}
+
+func (w *TextInput) Reset() {
+	w.SetText("")
+}
+
+func (w *TextInput) Update(ctx *uikit.Context) {
+	r := w.Measure(false)
 	if r.Dy() == 0 {
-		t.SetFrame(r.Min.X, r.Min.Y, r.Max.X)
+		w.SetFrame(r.Min.X, r.Min.Y, r.Max.X)
 	}
 
-	if t.IsFocused() && t.IsEnabled() {
-		t.caretTick++
+	if w.IsFocused() && w.IsEnabled() {
+		w.caretTick++
 	} else {
-		t.caretTick = 0
+		w.caretTick = 0
 	}
 
-	if !t.IsFocused() || !t.IsEnabled() {
+	if !w.IsFocused() || !w.IsEnabled() {
 		return
 	}
 
-	// Typed characters (desktop fallback).
 	for _, r := range ebiten.AppendInputChars(nil) {
-		// Handle common backspace representations defensively (desktop vs some IMEs)
 		if r == '\b' || r == 0x7f {
-			t.backspace()
+			w.backspace()
 			continue
 		}
-		// Skip control chars
+
 		if r < 0x20 {
 			continue
 		}
-		t.text += string(r)
+
+		w.AppendText(string(r))
 	}
 
-	// Backspace via key (desktop)
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		t.backspace()
-	}
-	// Delete (treat as backspace for end-of-text caret)
-	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
-		t.backspace()
+		w.backspace()
 	}
 
-	// Enter: blur
+	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
+		w.backspace()
+	}
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
 		ctx.SetFocus(nil)
 	}
 }
 
-func (t *TextInput) backspace() {
-	if t.text == "" {
+func (w *TextInput) backspace() {
+	if w.text == "" {
 		return
 	}
-	rs := []rune(t.text)
+
+	rs := []rune(w.text)
 	if len(rs) == 0 {
-		t.text = ""
+		w.SetText("")
 		return
 	}
-	t.text = string(rs[:len(rs)-1])
+
+	w.SetText(string(rs[:len(rs)-1]))
 }
 
-func (t *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	t.Base.Draw(ctx, dst)
-
-	r := t.Measure(false)
+func (w *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
+	w.Base.Draw(ctx, dst)
+	r := w.Measure(false)
 
 	content := common.Inset(r, ctx.Theme.PadX, ctx.Theme.PadY)
 
-	// Baseline
 	met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
 	baselineY := r.Min.Y + (r.Dy()-met.Height)/2 + met.Ascent
 
-	// Text / placeholder
-	drawStr := t.text
+	drawStr := w.text
 	textCol := ctx.Theme.Text
-	if drawStr == "" && !t.IsFocused() {
-		drawStr = t.placeholder
+	if drawStr == "" && !w.IsFocused() {
+		drawStr = w.placeholder
 		textCol = ctx.Theme.MutedText
 	}
 
-	// Horizontal scroll so the end is visible (caret is always at end).
 	textW := uikit.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, drawStr)
 	shiftX := 0
 	if textW > content.Dx() {
 		shiftX = content.Dx() - textW
 	}
 
-	ctx.Text.SetAlign(0) // Left
+	ctx.Text.SetAlign(etxt.Left)
 	ctx.Text.SetColor(textCol)
 	ctx.Text.Draw(dst, drawStr, content.Min.X+shiftX, baselineY)
 
-	// Caret (rect, no extra space)
-	if t.IsFocused() && t.IsEnabled() && t.CaretWidthPx > 0 {
-		blinkFrames := int(math.Max(1, float64(t.CaretBlinkMs)/1000.0*60.0))
-		if (t.caretTick/blinkFrames)%2 == 0 {
-			wBefore := uikit.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, t.text)
-			cx := content.Min.X + shiftX + wBefore + t.CaretMarginPx
+	if w.IsFocused() && w.IsEnabled() && w.Theme().CaretWidthPx > 0 {
+		blinkFrames := int(math.Max(1, float64(w.Theme().CaretBlink)/float64(time.Second)*60.0))
+
+		if (w.caretTick/blinkFrames)%2 == 0 {
+			wBefore := uikit.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, w.text)
+			cx := content.Min.X + shiftX + wBefore + w.Theme().CaretMarginPx
 			cy := baselineY - met.Ascent
 			caretH := met.Height
 
@@ -169,7 +157,7 @@ func (t *TextInput) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 				cx = content.Min.X + content.Dx()
 			}
 
-			vector.DrawFilledRect(dst, float32(cx), float32(cy), float32(t.CaretWidthPx), float32(caretH), ctx.Theme.Caret, false)
+			vector.DrawFilledRect(dst, float32(cx), float32(cy), float32(w.Theme().CaretWidthPx), float32(caretH), ctx.Theme.Caret, false)
 		}
 	}
 }

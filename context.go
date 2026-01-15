@@ -65,10 +65,10 @@ func (c *Context) Add(w Widget) {
 }
 
 func (c *Context) Focused() Widget {
-
 	if c.focus < 0 || c.focus >= len(c.widgets) {
 		return nil
 	}
+
 	return c.widgets[c.focus]
 }
 
@@ -101,16 +101,6 @@ func (c *Context) Pointer() PointerStatus {
 	return *c.ptr
 }
 
-func (c *Context) dispatch(w Widget, e Event) {
-	if w == nil {
-		return
-	}
-
-	if h, ok := any(w).(EventHandler); ok {
-		h.HandleEvent(c, e)
-	}
-}
-
 func (c *Context) SetFocus(w Widget) {
 	old := c.Focused()
 
@@ -127,13 +117,13 @@ func (c *Context) SetFocus(w Widget) {
 
 	// Emit focus events if changed
 	if old != nil && (newIdx != c.focus) {
-		c.dispatch(old, Event{Type: EventFocusLost})
+		old.Dispatch(Event{Widget: old, Type: EventFocusLost})
 	}
 
 	c.focus = newIdx
 	newW := c.Focused()
 	if newW != nil && newW != old {
-		c.dispatch(newW, Event{Type: EventFocusGained})
+		newW.Dispatch(Event{Widget: newW, Type: EventFocusGained})
 	}
 
 	// IME show/hide based on focused widget.
@@ -338,16 +328,17 @@ func (c *Context) Update() {
 		// Pointer down routed to the chosen target.
 		if c.ptr.IsJustDown && target == w && w.IsEnabled() {
 			w.SetPressed(true)
-			c.dispatch(w, Event{Type: EventPointerDown, X: c.ptr.X, Y: c.ptr.Y})
+			w.Dispatch(Event{Widget: w, Type: EventPointerDown, Pointer: c.ptr})
 		}
 
 		// Pointer up: release + click if pointer ends inside widget.
 		if c.ptr.IsJustUp {
 			wasPressed := w.IsPressed()
 			if wasPressed {
-				c.dispatch(w, Event{Type: EventPointerUp, X: c.ptr.X, Y: c.ptr.Y})
+				w.Dispatch(Event{Widget: w, Type: EventPointerUp, Pointer: c.ptr})
+
 				if w.IsEnabled() && c.widgetHit(w, c.ptr.X, c.ptr.Y) {
-					c.dispatch(w, Event{Type: EventClick, X: c.ptr.X, Y: c.ptr.Y})
+					w.Dispatch(Event{Widget: w, Type: EventClick, Pointer: c.ptr})
 				}
 			}
 

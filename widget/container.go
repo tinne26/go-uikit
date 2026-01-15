@@ -30,28 +30,30 @@ func NewContainer(theme *uikit.Theme) *Container {
 	return w
 }
 
-func (c *Container) SetHeight(h int) {
-	c.height = h
+func (w *Container) SetHeight(h int) {
+	w.height = h
 }
 
-func (c *Container) Focusable() bool { return false }
+func (w *Container) Focusable() bool {
+	return false
+}
 
-func (c *Container) Update(ctx *uikit.Context) {
-	r := c.Measure(false)
+func (w *Container) Update(ctx *uikit.Context) {
+	r := w.Measure(false)
 	if r.Dy() == 0 {
-		c.SetFrame(r.Min.X, r.Min.Y, r.Dx())
+		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
 	}
 
-	if c.OnUpdate != nil {
-		c.OnUpdate(ctx, common.Inset(c.Measure(false), ctx.Theme.PadX, ctx.Theme.PadY))
+	if w.OnUpdate != nil {
+		w.OnUpdate(ctx, common.Inset(w.Measure(false), ctx.Theme.PadX, ctx.Theme.PadY))
 	}
 }
 
-func (c *Container) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	r := c.Base.Draw(ctx, dst)
+func (w *Container) Draw(ctx *uikit.Context, dst *ebiten.Image) {
+	r := w.Base.Draw(ctx, dst)
 
 	content := common.Inset(r, ctx.Theme.PadX, ctx.Theme.PadY)
-	if c.OnDraw != nil {
-		c.OnDraw(ctx, dst, content)
+	if w.OnDraw != nil {
+		w.OnDraw(ctx, dst, content)
 	}
 }

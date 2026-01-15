@@ -28,6 +28,8 @@ func NewWidgetBaseConfig(theme *Theme) *WidgetBaseConfig {
 
 // Base contains shared widget state.
 type Base struct {
+	EventDispatcher
+
 	cfg   *WidgetBaseConfig
 	theme *Theme
 
@@ -46,10 +48,11 @@ type Base struct {
 
 func NewBase(cfg *WidgetBaseConfig) Base {
 	return Base{
-		cfg:     cfg,
-		theme:   cfg.Theme,
-		visible: true,
-		enabled: true,
+		EventDispatcher: NewEventDispatcher(),
+		cfg:             cfg,
+		theme:           cfg.Theme,
+		visible:         true,
+		enabled:         true,
 	}
 }
 

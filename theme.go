@@ -3,6 +3,7 @@ package uikit
 import (
 	"image/color"
 	"math"
+	"time"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
@@ -47,13 +48,17 @@ type Theme struct {
 	ErrorText      color.RGBA
 	ErrorBorder    color.RGBA
 	Scrollbar      color.RGBA
+	Caret          color.RGBA
 
 	// Scrollbar
 	ScrollbarRadius int
 	ScrollbarMinH   int
 	ScrollbarW      int
 
-	Caret color.RGBA
+	// Caret
+	CaretWidthPx  int
+	CaretBlink    time.Duration
+	CaretMarginPx int
 }
 
 type FontMetricsPx struct {
@@ -183,6 +188,9 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 		ErrorText:      color.RGBA{235, 110, 110, 255},
 		ErrorBorder:    color.RGBA{235, 110, 110, 255},
 
-		Caret: color.RGBA{235, 238, 242, 255},
+		Caret:         color.RGBA{235, 238, 242, 255},
+		CaretWidthPx:  2,
+		CaretBlink:    600 * time.Millisecond,
+		CaretMarginPx: 0,
 	}
 }
