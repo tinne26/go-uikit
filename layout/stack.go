@@ -175,7 +175,7 @@ func (l *Stack) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 
 	sub := dst.SubImage(vp).(*ebiten.Image)
 
-	l.Scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.contentH)
+	l.Scroll.DrawBar(sub, ctx.Theme(), vp.Dx(), vp.Dy(), l.contentH)
 }
 
 func (l *Stack) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {

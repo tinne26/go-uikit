@@ -15,7 +15,7 @@ type Container struct {
 	height int
 
 	OnUpdate func(ctx *uikit.Context, content image.Rectangle)
-	OnDraw   func(ctx *uikit.Context, dst *ebiten.Image, content image.Rectangle)
+	OnDraw   func(ctx *uikit.Context, dst *ebiten.Image)
 }
 
 func NewContainer(theme *uikit.Theme) *Container {
@@ -45,15 +45,16 @@ func (w *Container) Update(ctx *uikit.Context) {
 	}
 
 	if w.OnUpdate != nil {
-		w.OnUpdate(ctx, common.Inset(w.Measure(false), ctx.Theme.PadX, ctx.Theme.PadY))
+		w.OnUpdate(ctx, common.Inset(w.Measure(false), ctx.Theme().PadX, ctx.Theme().PadY))
 	}
 }
 
 func (w *Container) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	r := w.Base.Draw(ctx, dst)
 
-	content := common.Inset(r, ctx.Theme.PadX, ctx.Theme.PadY)
+	content := common.Inset(r, ctx.Theme().PadX, ctx.Theme().PadY)
 	if w.OnDraw != nil {
-		w.OnDraw(ctx, dst, content)
+		w.OnDraw(ctx, dst.SubImage(content).(*ebiten.Image))
+
 	}
 }

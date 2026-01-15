@@ -4,17 +4,13 @@ import (
 	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/tinne26/etxt"
 )
 
 // Context holds shared state for all widgets.
 type Context struct {
-	root  Layout
-	Theme *Theme
-	Text  *etxt.Renderer
-	IME   IMEBridge // optional (nil on desktop)
-	Scale Scale     // kept for apps, but input + layout are in logical pixels
-
+	root    Layout
+	theme   *Theme
+	ime     IMEBridge
 	widgets []Widget
 	focus   int // -1 means none
 
@@ -23,18 +19,12 @@ type Context struct {
 	prevTouches map[ebiten.TouchID]struct{}
 }
 
-func NewContext(theme *Theme, root Layout, renderer *etxt.Renderer, ime IMEBridge) *Context {
-	// Ensure renderer style is consistent with the theme.
-	renderer.SetFont(theme.Font)
-	renderer.SetSize(float64(theme.FontPx))
-
+func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
 	root.SetPadding(theme.SpaceL, theme.SpaceL)
 
 	return &Context{
-		Theme:       theme,
-		Text:        renderer,
-		IME:         ime,
-		Scale:       Scale{Device: 1, UI: 1},
+		theme:       theme,
+		ime:         ime,
 		focus:       -1,
 		prevTouches: map[ebiten.TouchID]struct{}{},
 		root:        root,
@@ -43,20 +33,19 @@ func NewContext(theme *Theme, root Layout, renderer *etxt.Renderer, ime IMEBridg
 	}
 }
 
+func (c *Context) Theme() *Theme {
+	return c.theme
+}
+
 // Root returns the root widget (typically a Layout).
 func (c *Context) Root() Layout {
 	return c.root
 }
 
-// SetScale stores a scale value for the app. The default Context input space is logical pixels.
-func (c *Context) SetScale(s Scale) {
-	c.Scale = s
-}
-
 // SetIMEBridge sets/updates the IME bridge at runtime.
 // It also synchronizes the IME visibility with the currently focused widget.
 func (c *Context) SetIMEBridge(b IMEBridge) {
-	c.IME = b
+	c.ime = b
 	c.updateIMEForce(c.Focused())
 }
 
@@ -131,7 +120,7 @@ func (c *Context) SetFocus(w Widget) {
 }
 
 func (c *Context) updateIME(oldW, newW Widget) {
-	if c.IME == nil {
+	if c.ime == nil {
 		return
 	}
 
@@ -150,15 +139,15 @@ func (c *Context) updateIME(oldW, newW Widget) {
 
 	// Only issue calls on state transitions.
 	if oldWants && !newWants {
-		c.IME.Hide()
+		c.ime.Hide()
 	}
 	if !oldWants && newWants {
-		c.IME.Show()
+		c.ime.Show()
 	}
 }
 
 func (c *Context) updateIMEForce(focused Widget) {
-	if c.IME == nil {
+	if c.ime == nil {
 		return
 	}
 	wants := false
@@ -168,9 +157,9 @@ func (c *Context) updateIMEForce(focused Widget) {
 		}
 	}
 	if wants {
-		c.IME.Show()
+		c.ime.Show()
 	} else {
-		c.IME.Hide()
+		c.ime.Hide()
 	}
 }
 

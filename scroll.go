@@ -58,7 +58,7 @@ func (s *Scroller) Update(ctx *Context, viewport image.Rectangle, contentH int) 
 	// Wheel (desktop)
 	_, wy := ebiten.Wheel()
 	if wy != 0 && inside {
-		step := int(math.Round(float64(ctx.Theme.ControlH) * 0.65))
+		step := int(math.Round(float64(ctx.Theme().ControlH) * 0.65))
 		if step < 10 {
 			step = 10
 		}
@@ -151,6 +151,6 @@ func (s *Scroller) DrawBar(dst *ebiten.Image, theme *Theme, viewportW, viewportH
 	ox := dst.Bounds().Min.X
 	oy := dst.Bounds().Min.Y
 
-	vector.DrawFilledRect(dst, float32(trackX+ox), float32(oy), float32(trackW), float32(trackH), theme.Border, false)
-	vector.DrawFilledRect(dst, float32(trackX+ox), float32(oy+thumbY), float32(trackW), float32(thumbH), theme.Focus, false)
+	vector.DrawFilledRect(dst, float32(trackX+ox), float32(oy), float32(trackW), float32(trackH), theme.BorderColor, false)
+	vector.DrawFilledRect(dst, float32(trackX+ox), float32(oy+thumbY), float32(trackW), float32(thumbH), theme.FocusColor, false)
 }

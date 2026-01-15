@@ -55,11 +55,8 @@ func (w *Label) Update(ctx *uikit.Context) {
 func (w *Label) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	r := w.Base.Draw(ctx, dst)
 
-	met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-	baselineY := r.Min.Y + (r.Dy()-met.Height)/2 + met.Ascent
+	ctx.Theme().Text().SetColor(ctx.Theme().MutedTextColor)
+	ctx.Theme().Text().SetAlign(etxt.Left | etxt.VertCenter)
 
-	ctx.Text.SetColor(ctx.Theme.MutedText)
-	ctx.Text.SetAlign(etxt.Left)
-
-	ctx.Text.Draw(dst, w.currentText(), r.Min.X, baselineY)
+	ctx.Theme().Text().Draw(dst, w.currentText(), r.Min.X, r.Min.Y+(r.Dy()/2))
 }

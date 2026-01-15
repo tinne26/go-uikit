@@ -2,6 +2,7 @@ package widget
 
 import (
 	"image"
+	"math"
 
 	"github.com/erparts/go-uikit"
 	"github.com/erparts/go-uikit/common"
@@ -21,17 +22,24 @@ type Checkbox struct {
 func NewCheckbox(theme *uikit.Theme, label string) *Checkbox {
 	cfg := uikit.NewWidgetBaseConfig(theme)
 
-	w := &Checkbox{}
-	w.label = label
+	w := &Checkbox{
+		label: label,
+	}
 
 	w.Base = uikit.NewBase(cfg)
+
+	// Clicking anywhere on the widget triggers toggle (Base must emit EventClick).
 	w.Base.On(uikit.EventClick, w.onClick, false)
+
 	return w
 }
 
 func (w *Checkbox) Focusable() bool { return true }
 
 func (w *Checkbox) SetChecked(v bool) {
+	if w.checked == v {
+		return
+	}
 	w.checked = v
 	w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventValueChange})
 }
@@ -60,6 +68,7 @@ func (w *Checkbox) Update(ctx *uikit.Context) {
 		return
 	}
 
+	// Keyboard toggle
 	if w.IsFocused() && inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		w.SetChecked(!w.Checked())
 	}
@@ -68,47 +77,73 @@ func (w *Checkbox) Update(ctx *uikit.Context) {
 func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	w.Base.Draw(ctx, dst)
 
+	theme := ctx.Theme()
 	r := w.Measure(false)
 
-	content := common.Inset(r, ctx.Theme.PadX, ctx.Theme.PadY)
-	boxSize := ctx.Theme.CheckSize
-	if boxSize < 10 {
-		boxSize = 10
+	content := common.Inset(r, theme.PadX, theme.PadY)
+
+	// Checkbox square size
+	boxSize := theme.CheckSize
+	if boxSize < 12 {
+		boxSize = 12
 	}
 
 	boxY := r.Min.Y + (r.Dy()-boxSize)/2
 	box := image.Rect(content.Min.X, boxY, content.Min.X+boxSize, boxY+boxSize)
 
-	w.Base.DrawRoundedRect(dst, box, int(float64(boxSize)*0.25), ctx.Theme.Bg)
-	w.Base.DrawRoundedBorder(dst, box, int(float64(boxSize)*0.25), ctx.Theme.BorderW, ctx.Theme.Border)
+	// Colors
+	bg := theme.BackgroundColor
+	border := theme.BorderColor
+	checkCol := theme.FocusColor
+	textCol := theme.TextColor
+
+	if !w.IsEnabled() {
+		border = theme.DisabledColor
+		checkCol = theme.DisabledColor
+		textCol = theme.DisabledColor
+	}
+
+	radius := int(math.Round(float64(boxSize) * 0.22))
+	if radius < 2 {
+		radius = 2
+	}
+
+	if w.IsEnabled() {
+		if w.IsPressed() {
+			bg = theme.FocusColor
+		} else if w.IsHovered() {
+			bg = theme.BorderColor
+		}
+	}
+
+	w.Base.DrawRoundedRect(dst, box, radius, bg)
+	w.Base.DrawRoundedBorder(dst, box, radius, theme.BorderW, border)
 
 	if w.checked {
-		x1 := float32(box.Min.X) + float32(box.Dx())*0.22
-		y1 := float32(box.Min.Y) + float32(box.Dy())*0.55
-		x2 := float32(box.Min.X) + float32(box.Dx())*0.43
-		y2 := float32(box.Min.Y) + float32(box.Dy())*0.73
-		x3 := float32(box.Min.X) + float32(box.Dx())*0.78
-		y3 := float32(box.Min.Y) + float32(box.Dy())*0.28
+		x1 := float32(box.Min.X) + float32(boxSize)*0.22
+		y1 := float32(box.Min.Y) + float32(boxSize)*0.55
+		x2 := float32(box.Min.X) + float32(boxSize)*0.42
+		y2 := float32(box.Min.Y) + float32(boxSize)*0.73
+		x3 := float32(box.Min.X) + float32(boxSize)*0.78
+		y3 := float32(box.Min.Y) + float32(boxSize)*0.30
 
-		w := float32(ctx.Theme.BorderW)
-		if w < 2 {
-			w = 2
+		strokeW := float32(theme.BorderW)
+		if strokeW < 2 {
+			strokeW = 2
+		}
+		// Slightly thicker for better readability at small sizes
+		if strokeW < float32(boxSize)/8 {
+			strokeW = float32(boxSize) / 8
 		}
 
-		vector.StrokeLine(dst, x1, y1, x2, y2, w, ctx.Theme.Focus, false)
-		vector.StrokeLine(dst, x2, y2, x3, y3, w, ctx.Theme.Focus, false)
+		vector.StrokeLine(dst, x1, y1, x2, y2, strokeW, checkCol, true)
+		vector.StrokeLine(dst, x2, y2, x3, y3, strokeW, checkCol, true)
 	}
 
-	met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-	baselineY := r.Min.Y + (r.Dy()-met.Height)/2 + met.Ascent
-	tx := box.Max.X + ctx.Theme.SpaceS
+	tx := box.Max.X + theme.SpaceS
 
-	col := ctx.Theme.Text
-	if !w.IsEnabled() {
-		col = ctx.Theme.Disabled
-	}
-
-	ctx.Text.SetColor(col)
-	ctx.Text.SetAlign(etxt.Left)
-	ctx.Text.Draw(dst, w.label, tx, baselineY)
+	t := theme.Text()
+	t.SetColor(textCol)
+	t.SetAlign(etxt.Left | etxt.VertCenter)
+	t.Draw(dst, w.label, tx, r.Min.Y+r.Dy()/2)
 }

@@ -67,8 +67,8 @@ func (b *Base) controlHeight(extended bool) int {
 	}
 
 	if ok, _ := b.IsInvalid(); ok && extended {
-		met, _ := MetricsPx(b.theme.Font, b.theme.ErrorFontPx)
-		h += b.theme.ErrorGap + met.Height
+		m := b.theme.ErrorText().Measure(" ")
+		h += b.theme.ErrorGap + m.IntHeight()
 	}
 
 	return h
@@ -85,8 +85,8 @@ func (b *Base) ErrorRect() image.Rectangle {
 		return image.Rectangle{}
 	}
 
-	met, _ := MetricsPx(b.theme.Font, b.theme.ErrorFontPx)
-	h := b.theme.ErrorGap + met.Height
+	m := b.theme.ErrorText().Measure(" ")
+	h := b.theme.ErrorGap + m.IntHeight()
 
 	return image.Rect(r.Min.X, r.Max.Y+b.theme.ErrorGap, r.Max.X, r.Max.Y+h)
 }
@@ -118,8 +118,8 @@ func (b *Base) SetFrame(x, y, w int) {
 func (b *Base) requiredHeight() int {
 	h := b.controlHeight(true)
 	if ok, _ := b.IsInvalid(); ok {
-		met, _ := MetricsPx(b.theme.Font, b.theme.ErrorFontPx)
-		h += b.theme.ErrorGap + met.Height
+		m := b.theme.ErrorText().Measure(" ")
+		h += b.theme.ErrorGap + m.IntHeight()
 	}
 
 	return h
@@ -141,7 +141,6 @@ func (b *Base) IsVisible() bool   { return b.visible }
 func (b *Base) SetVisible(v bool) { b.visible = v }
 
 func (c *Base) Draw(ctx *Context, dst *ebiten.Image) image.Rectangle {
-	c.theme = ctx.Theme
 	if c.rect.Dy() == 0 {
 		c.SetFrame(c.rect.Min.X, c.rect.Min.Y, c.rect.Dy())
 	}
@@ -159,16 +158,16 @@ func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 		return
 	}
 
-	bg := ctx.Theme.Surface
+	bg := ctx.Theme().SurfaceColor
 	if !c.enabled {
-		bg = ctx.Theme.SurfacePressed
+		bg = ctx.Theme().SurfacePressedColor
 	} else if c.pressed {
-		bg = ctx.Theme.SurfacePressed
+		bg = ctx.Theme().SurfacePressedColor
 	} else if c.hovered {
-		bg = ctx.Theme.SurfaceHover
+		bg = ctx.Theme().SurfaceHoverColor
 	}
 
-	drawRoundedRect(dst, r, ctx.Theme.Radius, bg)
+	drawRoundedRect(dst, r, ctx.Theme().Radius, bg)
 }
 
 func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
@@ -176,15 +175,15 @@ func (c *Base) DrawBoder(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 		return
 	}
 
-	border := ctx.Theme.Border
+	border := ctx.Theme().BorderColor
 	if !c.enabled {
-		border = ctx.Theme.Disabled
+		border = ctx.Theme().DisabledColor
 	}
 	if c.invalid {
-		border = ctx.Theme.ErrorBorder
+		border = ctx.Theme().ErrorBorderColor
 	}
 
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.BorderW, border)
+	drawRoundedBorder(dst, r, ctx.Theme().Radius, ctx.Theme().BorderW, border)
 }
 
 func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
@@ -196,7 +195,7 @@ func (c *Base) DrawFocus(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 		return
 	}
 
-	drawRoundedBorder(dst, r, ctx.Theme.Radius, ctx.Theme.FocusRingW, ctx.Theme.Focus)
+	drawRoundedBorder(dst, r, ctx.Theme().Radius, ctx.Theme().FocusRingW, ctx.Theme().FocusColor)
 }
 
 func (c *Base) DrawInvalid(ctx *Context, dst *ebiten.Image, r image.Rectangle) {

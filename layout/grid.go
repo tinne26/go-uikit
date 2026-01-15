@@ -190,7 +190,7 @@ func (l *Grid) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	dst.DrawImage(part, op)
 
 	sub := dst.SubImage(vp).(*ebiten.Image)
-	l.scroll.DrawBar(sub, ctx.Theme, vp.Dx(), vp.Dy(), l.height)
+	l.scroll.DrawBar(sub, ctx.Theme(), vp.Dx(), vp.Dy(), l.height)
 }
 
 func (l *Grid) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {

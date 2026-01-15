@@ -2,12 +2,10 @@ package demo
 
 import (
 	"fmt"
-	"image"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/tinne26/etxt"
-	"golang.org/x/image/font/gofont/goregular"
-	"golang.org/x/image/font/sfnt"
 
 	"github.com/erparts/go-uikit"
 	"github.com/erparts/go-uikit/layout"
@@ -19,10 +17,8 @@ type Game struct {
 	grid  *layout.Grid
 	ime   uikit.IMEBridge
 
-	scale    uikit.Scale
-	renderer *etxt.Renderer
-	theme    *uikit.Theme
-	ctx      *uikit.Context
+	theme *uikit.Theme
+	ctx   *uikit.Context
 
 	title        *widget.Label
 	txtA         *widget.TextInput
@@ -36,22 +32,15 @@ type Game struct {
 	chkGrid      *widget.Checkbox
 	btnA         *widget.Button
 	btnDis       *widget.Button
-	footer       *widget.Label
 	focusInfo    *widget.Label
 	exampleLabel *widget.Label
 
 	clickCount int
 }
 
-func mustFont() *sfnt.Font {
-	f, err := sfnt.Parse(goregular.TTF)
-	if err != nil {
-		panic(err)
-	}
-	return f
+func New() *Game {
+	return &Game{}
 }
-
-func New() *Game { return &Game{} }
 
 // SetIMEBridge can be called from mobile bindings to enable keyboard show/hide.
 func (g *Game) SetIMEBridge(b uikit.IMEBridge) {
@@ -62,22 +51,14 @@ func (g *Game) SetIMEBridge(b uikit.IMEBridge) {
 }
 
 func (g *Game) initOnce() {
-	if g.renderer != nil {
+	if g.ctx != nil {
 		return
 	}
 
-	g.renderer = etxt.NewRenderer()
-	g.renderer.Utils().SetCache8MiB()
-	g.renderer.SetAlign(etxt.Left)
-	g.renderer.Glyph().SetMissHandler(etxt.OnMissNotdef)
-
-	f := mustFont()
-	g.renderer.SetFont(f)
-
-	g.theme = uikit.NewTheme(f, 20)
+	g.theme = uikit.DefaultTheme()
 
 	root := layout.NewStack(g.theme)
-	g.ctx = uikit.NewContext(g.theme, root, g.renderer, g.ime)
+	g.ctx = uikit.NewContext(g.theme, root, g.ime)
 	g.stack = layout.NewStack(g.theme)
 
 	g.grid = layout.NewGrid(g.theme)
@@ -141,27 +122,20 @@ func (g *Game) initOnce() {
 
 	g.box = widget.NewContainer(g.theme)
 	g.box.SetHeight(140)
-	g.box.OnDraw = func(ctx *uikit.Context, dst *ebiten.Image, content image.Rectangle) {
+	g.box.OnDraw = func(ctx *uikit.Context, dst *ebiten.Image) {
 		s, _ := g.sel.Selected()
 		lines := []string{
 			"Custom container (user content)",
-			fmt.Sprintf("Click Count: %d", g.clickCount),
-			fmt.Sprintf("Select Value: %s ", s.Label),
-			fmt.Sprintf("Search Text: %s", g.txtB.Text()),
-			fmt.Sprintf("TextArea Chars: %d", len([]rune(g.ta.Text()))),
+			fmt.Sprintf("- Click Count: %d", g.clickCount),
+			fmt.Sprintf("- Select Value: %s ", s.Label),
+			fmt.Sprintf("- Search Text: %s", g.txtB.Text()),
+			fmt.Sprintf("- TextArea Chars: %d", len([]rune(g.ta.Text()))),
 		}
 
-		dst = dst.SubImage(content).(*ebiten.Image)
-
-		met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
-		y := (content.Min.Y) + met.Ascent
-		x := content.Min.X
-
-		ctx.Text.SetColor(ctx.Theme.MutedText)
-		for _, ln := range lines {
-			ctx.Text.Draw(dst, ln, x, y)
-			y += met.Height
-		}
+		t := ctx.Theme().Text()
+		t.SetColor(ctx.Theme().MutedTextColor)
+		t.SetAlign(etxt.Left | etxt.Top)
+		t.Draw(dst, strings.Join(lines, "\n"), dst.Bounds().Min.X, dst.Bounds().Min.Y)
 	}
 
 	g.chkA = widget.NewCheckbox(g.theme, "Enable main button")
@@ -191,14 +165,11 @@ func (g *Game) initOnce() {
 	g.btnA = widget.NewButton(g.theme, "Action (enabled)")
 	g.btnA.On(uikit.EventClick, func(_ uikit.Event) bool {
 		g.clickCount++
-		g.footer.SetText("Button clicked!")
 		return false
 	}, false)
 
 	g.btnDis = widget.NewButton(g.theme, "Action (disabled)")
 	g.btnDis.SetEnabled(false)
-
-	g.footer = widget.NewLabel(g.theme, "")
 
 	g.ctx.Add(g.title)
 	g.ctx.Add(g.focusInfo)
@@ -206,7 +177,6 @@ func (g *Game) initOnce() {
 
 	g.ctx.Add(g.stack)
 	g.ctx.Add(g.grid)
-	g.ctx.Add(g.footer)
 
 	contentWidgets := []uikit.Widget{
 		g.exampleLabel,
@@ -249,19 +219,10 @@ func (g *Game) Layout(outW, outH int) (int, int) {
 	}
 
 	// Optional: make UI a bit larger on small screens.
-	uiScale := 1.0
 	minSide := float64(outW)
 	if float64(outH) < minSide {
 		minSide = float64(outH)
 	}
-	if minSide <= 520 {
-		uiScale = 1.5
-	} else if minSide <= 720 {
-		uiScale = 1.25
-	}
 
-	g.scale = uikit.Scale{Device: dev, UI: uiScale}
-	g.ctx.SetScale(g.scale)
-	g.renderer.SetScale(1)
 	return outW, outH
 }

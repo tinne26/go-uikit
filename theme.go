@@ -5,7 +5,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/tinne26/etxt"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 )
@@ -36,19 +38,19 @@ type Theme struct {
 	ErrorGap    int
 
 	// Colors
-	Text           color.RGBA
-	MutedText      color.RGBA
-	Bg             color.RGBA
-	Surface        color.RGBA
-	SurfaceHover   color.RGBA
-	SurfacePressed color.RGBA
-	Border         color.RGBA
-	Focus          color.RGBA
-	Disabled       color.RGBA
-	ErrorText      color.RGBA
-	ErrorBorder    color.RGBA
-	Scrollbar      color.RGBA
-	Caret          color.RGBA
+	TextColor           color.RGBA
+	MutedTextColor      color.RGBA
+	BackgroundColor     color.RGBA
+	SurfaceColor        color.RGBA
+	SurfaceHoverColor   color.RGBA
+	SurfacePressedColor color.RGBA
+	BorderColor         color.RGBA
+	FocusColor          color.RGBA
+	DisabledColor       color.RGBA
+	ErrorTextColor      color.RGBA
+	ErrorBorderColor    color.RGBA
+	Scrollbar           color.RGBA
+	CaretColor          color.RGBA
 
 	// Scrollbar
 	ScrollbarRadius int
@@ -59,28 +61,45 @@ type Theme struct {
 	CaretWidthPx  int
 	CaretBlink    time.Duration
 	CaretMarginPx int
+
+	renderer *etxt.Renderer
 }
 
-type FontMetricsPx struct {
-	Ascent  int
-	Descent int
-	Height  int
+func (t *Theme) Text() *etxt.Renderer {
+	if t.renderer == nil {
+		r := etxt.NewRenderer()
+		r.Utils().SetCache8MiB()
+		r.Glyph().SetMissHandler(etxt.OnMissNotdef)
+		r.SetFont(t.Font)
+		t.renderer = r
+	}
+
+	t.renderer.SetSize(float64(t.FontPx))
+	t.renderer.SetColor(t.TextColor)
+	t.renderer.SetAlign(etxt.Left | etxt.VertCenter)
+	return t.renderer
 }
 
-// MetricsPx returns font metrics in pixels for a given size (ppem).
-func MetricsPx(f *sfnt.Font, sizePx int) (FontMetricsPx, error) {
+func (t *Theme) ErrorText() *etxt.Renderer {
+	r := t.Text()
+	r.SetSize(float64(t.ErrorFontPx))
+	r.SetColor(t.ErrorTextColor)
+	return r
+}
+
+func fontHeight(f *sfnt.Font, sizePx int) (int, error) {
 	var buf sfnt.Buffer
 	m, err := f.Metrics(&buf, fixed.I(sizePx), font.HintingNone)
 	if err != nil {
-		return FontMetricsPx{}, err
+		return 0, err
 	}
-	ascent := int(m.Ascent.Round())
-	descent := int(m.Descent.Round())
-	height := int(m.Height.Round())
-	if height <= 0 {
-		height = ascent + descent
-	}
-	return FontMetricsPx{Ascent: ascent, Descent: descent, Height: height}, nil
+
+	return m.Height.Round(), nil
+}
+
+func DefaultTheme() *Theme {
+	f, _ := sfnt.Parse(goregular.TTF)
+	return NewTheme(f, 20)
 }
 
 func NewTheme(font *sfnt.Font, fontPx int) *Theme {
@@ -88,19 +107,19 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 		fontPx = 10
 	}
 
-	met, err := MetricsPx(font, fontPx)
+	fontH, err := fontHeight(font, fontPx)
 	if err != nil {
 		panic(err)
 	}
 
 	// Control height derived from font height.
 	// k=1.8 gives a "web input" feel without being too tall.
-	controlH := int(math.Round(float64(met.Height) * 1.8))
-	if controlH < met.Height+6 {
-		controlH = met.Height + 6
+	controlH := int(math.Round(float64(fontH) * 1.8))
+	if controlH < fontH+6 {
+		controlH = fontH + 6
 	}
 
-	padY := (controlH - met.Height) / 2
+	padY := (controlH - fontH) / 2
 	if padY < 2 {
 		padY = 2
 	}
@@ -138,10 +157,11 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 		spaceL = 12
 	}
 
-	checkSize := met.Height
+	checkSize := fontH
 	if checkSize < controlH-padY*2 {
 		checkSize = controlH - padY*2
 	}
+
 	// Keep it visually balanced
 	checkSize = int(math.Round(float64(checkSize) * 0.92))
 
@@ -150,6 +170,7 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 	if errorFontPx < 10 {
 		errorFontPx = 10
 	}
+
 	errorGap := int(math.Round(float64(controlH) * 0.15))
 	if errorGap < 4 {
 		errorGap = 4
@@ -176,19 +197,19 @@ func NewTheme(font *sfnt.Font, fontPx int) *Theme {
 		ErrorFontPx: errorFontPx,
 		ErrorGap:    errorGap,
 
-		Text:           color.RGBA{235, 238, 242, 255},
-		MutedText:      color.RGBA{170, 176, 186, 255},
-		Bg:             color.RGBA{20, 22, 26, 255},
-		Surface:        color.RGBA{34, 38, 46, 255},
-		SurfaceHover:   color.RGBA{42, 48, 58, 255},
-		SurfacePressed: color.RGBA{28, 32, 40, 255},
-		Border:         color.RGBA{76, 84, 98, 255},
-		Focus:          color.RGBA{120, 170, 255, 255},
-		Disabled:       color.RGBA{90, 96, 106, 255},
-		ErrorText:      color.RGBA{235, 110, 110, 255},
-		ErrorBorder:    color.RGBA{235, 110, 110, 255},
+		TextColor:           color.RGBA{235, 238, 242, 255},
+		MutedTextColor:      color.RGBA{170, 176, 186, 255},
+		BackgroundColor:     color.RGBA{20, 22, 26, 255},
+		SurfaceColor:        color.RGBA{34, 38, 46, 255},
+		SurfaceHoverColor:   color.RGBA{42, 48, 58, 255},
+		SurfacePressedColor: color.RGBA{28, 32, 40, 255},
+		BorderColor:         color.RGBA{76, 84, 98, 255},
+		FocusColor:          color.RGBA{120, 170, 255, 255},
+		DisabledColor:       color.RGBA{90, 96, 106, 255},
+		ErrorTextColor:      color.RGBA{235, 110, 110, 255},
+		ErrorBorderColor:    color.RGBA{235, 110, 110, 255},
 
-		Caret:         color.RGBA{235, 238, 242, 255},
+		CaretColor:    color.RGBA{235, 238, 242, 255},
 		CaretWidthPx:  2,
 		CaretBlink:    600 * time.Millisecond,
 		CaretMarginPx: 0,

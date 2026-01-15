@@ -19,8 +19,7 @@ type TextArea struct {
 	text        string
 	placeholder string
 
-	lines int
-
+	lines  int
 	Scroll uikit.Scroller
 
 	// Caret config (end-of-text caret)
@@ -28,12 +27,16 @@ type TextArea struct {
 	CaretBlinkMs  int
 	CaretMarginPx int
 	caretTick     int
+
+	// Reusable buffers (avoid allocations every frame)
+	inputBuf  []rune
+	appendBuf []rune
 }
 
 func NewTextArea(theme *uikit.Theme, placeholder string) *TextArea {
 	cfg := uikit.NewWidgetBaseConfig(theme)
 
-	t := &TextArea{
+	w := &TextArea{
 		Base:          uikit.NewBase(cfg),
 		placeholder:   placeholder,
 		lines:         5,
@@ -42,126 +45,164 @@ func NewTextArea(theme *uikit.Theme, placeholder string) *TextArea {
 		CaretMarginPx: 0,
 	}
 
-	t.Scroll = uikit.NewScroller()
-	t.Scroll.Scrollbar = uikit.ScrollbarAlways // textarea typically shows it (content-dependent)
+	w.Scroll = uikit.NewScroller()
+	w.Scroll.Scrollbar = uikit.ScrollbarAlways
 
-	t.Base.HeightCaculator = t.calculateHeight
-	return t
+	w.Base.HeightCaculator = w.calculateHeight
+	return w
 }
 
 func (w *TextArea) calculateHeight() int {
-	met, _ := uikit.MetricsPx(w.Theme().Font, w.Theme().FontPx)
 	lines := w.lines
 	if lines <= 0 {
 		lines = 5
 	}
 
-	controlH := w.Theme().PadY*2 + lines*met.Height
+	lineH := w.Theme().Text().Measure(" ").IntHeight()
+	controlH := w.Theme().PadY*2 + lines*lineH
 	if controlH < w.Theme().ControlH {
 		controlH = w.Theme().ControlH
 	}
-
 	return controlH
 }
 
-func (w *TextArea) Focusable() bool {
-	return true
-}
-
-func (w *TextArea) WantsIME() bool {
-	return true
-}
-
-func (w *TextArea) Text() string {
-	return w.text
-}
+func (w *TextArea) Focusable() bool { return true }
+func (w *TextArea) WantsIME() bool  { return true }
+func (w *TextArea) Text() string    { return w.text }
 
 func (w *TextArea) SetText(s string) {
+	if w.text == s {
+		return
+	}
 	w.text = s
 	w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventValueChange})
-}
-
-func (w *TextArea) AppendText(s string) {
-	w.SetText(w.Text() + s)
 }
 
 func (w *TextArea) SetLines(n int) {
 	if n < 1 {
 		n = 1
 	}
-
 	w.lines = n
+}
+
+// setTextInternal updates the text without multiple dispatches.
+// Caller decides whether to Dispatch once.
+func (w *TextArea) setTextInternal(s string) {
+	w.text = s
 }
 
 func (w *TextArea) Update(ctx *uikit.Context) {
 	r := w.Measure(false)
 	if r.Dx() > 0 && r.Dy() == 0 {
+		// Correct: SetFrame expects width (Dx), not Max.X
 		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
 	}
 
-	if w.IsFocused() && w.IsEnabled() {
+	focused := w.IsFocused()
+	enabled := w.IsEnabled()
+
+	if focused && enabled {
 		w.caretTick++
 	} else {
 		w.caretTick = 0
 	}
 
-	content := common.Inset(r, ctx.Theme.PadX, ctx.Theme.PadY)
+	theme := ctx.Theme()
+	content := common.Inset(r, theme.PadX, theme.PadY)
 
-	met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
+	// Only line-height is needed for scroll math.
+	t := theme.Text()
+	lineH := t.Measure(" ").IntHeight()
+	if lineH <= 0 {
+		lineH = 1
+	}
 
+	// Compute line count without splitting
 	lineCount := 1
 	if w.text != "" {
 		lineCount = 1 + strings.Count(w.text, "\n")
 	}
 
-	contentH := lineCount * met.Height
+	contentH := lineCount * lineH
 	if contentH < content.Dy() {
 		contentH = content.Dy()
 	}
 
 	w.Scroll.Update(ctx, content, contentH)
 
-	if !w.IsFocused() || !w.IsEnabled() {
+	if !focused || !enabled {
 		return
 	}
 
+	original := w.text
+	text := original
+
+	// --- IME / chars (buffer reuse) ---
+	w.inputBuf = ebiten.AppendInputChars(w.inputBuf[:0])
+	w.appendBuf = w.appendBuf[:0]
+
+	flushAppend := func() {
+		if len(w.appendBuf) == 0 {
+			return
+		}
+		text += string(w.appendBuf)
+		w.appendBuf = w.appendBuf[:0]
+	}
+
 	changed := false
-	for _, r := range ebiten.AppendInputChars(nil) {
-		if r == '\b' || r == 0x7f {
-			w.backspace()
+
+	for _, ch := range w.inputBuf {
+		// backspace can come as '\b' or DEL
+		if ch == '\b' || ch == 0x7f {
+			flushAppend()
+			text = removeLastRune(text)
 			changed = true
 			continue
 		}
 
-		if r == '\n' || r == '\r' {
-			w.AppendText("\n")
+		// newline
+		if ch == '\n' || ch == '\r' {
+			flushAppend()
+			text += "\n"
 			changed = true
 			continue
 		}
 
-		if r < 0x20 {
+		// control chars ignored
+		if ch < 0x20 {
 			continue
 		}
 
-		w.AppendText(string(r))
+		w.appendBuf = append(w.appendBuf, ch)
+	}
+
+	if len(w.appendBuf) > 0 {
+		flushAppend()
 		changed = true
 	}
 
-	// Optional: keep these for platforms that don't send backspace/enter via chars
+	// Fallback key handling for platforms that don't deliver via AppendInputChars
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		w.backspace()
+		text = removeLastRune(text)
 		changed = true
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
-		w.AppendText("\n")
+		text += "\n"
 		changed = true
 	}
 
-	// Scroll-to-caret (caret at end of text)
-	if changed {
-		parts := strings.Split(w.text, "\n")
-		lastIdx := len(parts) - 1
-		caretBottom := (lastIdx + 1) * met.Height
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		ctx.SetFocus(nil)
+	}
+
+	// Apply once + Dispatch once
+	if changed && text != original {
+		w.setTextInternal(text)
+		w.Dispatch(uikit.Event{Widget: w, Type: uikit.EventValueChange})
+
+		// Scroll-to-caret (caret at end of text)
+		newLineCount := 1 + strings.Count(w.text, "\n")
+		caretBottom := newLineCount * lineH
 
 		minScroll := caretBottom - content.Dy()
 		if minScroll < 0 {
@@ -171,28 +212,14 @@ func (w *TextArea) Update(ctx *uikit.Context) {
 			w.Scroll.ScrollY = minScroll
 		}
 
-		maxScroll := contentH - content.Dy()
+		maxScroll := (newLineCount*lineH - content.Dy())
 		if maxScroll < 0 {
 			maxScroll = 0
 		}
-
 		if w.Scroll.ScrollY > maxScroll {
 			w.Scroll.ScrollY = maxScroll
 		}
 	}
-}
-
-func (w *TextArea) backspace() {
-	if w.text == "" {
-		return
-	}
-	rs := []rune(w.text)
-	if len(rs) == 0 {
-		w.SetText("")
-		return
-	}
-
-	w.SetText(string(rs[:len(rs)-1]))
 }
 
 func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
@@ -201,66 +228,84 @@ func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
 	}
 
-	content := common.Inset(r, ctx.Theme.PadX, ctx.Theme.PadY)
+	theme := ctx.Theme()
+	content := common.Inset(r, theme.PadX, theme.PadY)
 
+	// Base visuals
 	w.DrawSurfece(ctx, dst, r)
 	w.DrawBoder(ctx, dst, r)
 	w.DrawFocus(ctx, dst, r)
 
-	// Clip to content area
+	// Clip to content
 	sub := dst.SubImage(content).(*ebiten.Image)
 	ox, oy := sub.Bounds().Min.X, sub.Bounds().Min.Y
 
-	// Ensure renderer state for content
-	ctx.Text.SetFont(ctx.Theme.Font)
-	ctx.Text.SetSize(float64(ctx.Theme.FontPx))
-	ctx.Text.SetAlign(etxt.Left)
+	t := theme.Text()
+	t.SetFont(theme.Font)
+	t.SetSize(float64(theme.FontPx))
+	t.SetAlign(etxt.Left | etxt.Top)
 
-	met, _ := uikit.MetricsPx(ctx.Theme.Font, ctx.Theme.FontPx)
+	lineH := t.Measure(" ").IntHeight()
+	if lineH <= 0 {
+		lineH = 1
+	}
+
 	startY := -w.Scroll.ScrollY
 
 	// Placeholder
 	drawStr := w.text
-	col := ctx.Theme.Text
+	col := theme.TextColor
 	if drawStr == "" && !w.IsFocused() {
 		drawStr = w.placeholder
-		col = ctx.Theme.MutedText
-	}
-	ctx.Text.SetColor(col)
-
-	lines := strings.Split(drawStr, "\n")
-	for i, line := range lines {
-		y := startY + i*met.Height + met.Ascent
-		ctx.Text.Draw(sub, line, ox, oy+y)
+		col = theme.MutedTextColor
 	}
 
-	// Scrollbar (SubImage-safe after patch below)
+	t.SetColor(col)
+
+	// Draw lines WITHOUT strings.Split allocation
+	// Iterate and draw between '\n' boundaries.
+	y := startY
+	from := 0
+	for i := 0; i <= len(drawStr); i++ {
+		end := i
+		if i == len(drawStr) || drawStr[i] == '\n' {
+			line := drawStr[from:end]
+			t.Draw(sub, line, ox, oy+y)
+			y += lineH
+			from = i + 1
+		}
+	}
+
+	// Scrollbar
 	lineCount := 1
 	if w.text != "" {
 		lineCount = 1 + strings.Count(w.text, "\n")
 	}
-	contentH := lineCount * met.Height
+	contentH := lineCount * lineH
 	if contentH < content.Dy() {
 		contentH = content.Dy()
 	}
 
-	w.Scroll.DrawBar(sub, ctx.Theme, content.Dx(), content.Dy(), contentH)
+	w.Scroll.DrawBar(sub, theme, content.Dx(), content.Dy(), contentH)
 
-	// Caret at end (approx). Draw on sub so it's clipped.
+	// Caret at end
 	if w.IsFocused() && w.IsEnabled() && w.CaretWidthPx > 0 {
 		blinkFrames := int(math.Max(1, float64(w.CaretBlinkMs)/1000.0*60.0))
 		if (w.caretTick/blinkFrames)%2 == 0 {
-			lastLine := ""
-			lastIdx := 0
-			if w.text != "" {
-				parts := strings.Split(w.text, "\n")
-				lastIdx = len(parts) - 1
-				lastLine = parts[lastIdx]
+
+			// last line text = substring after last '\n'
+			lastIdx := strings.LastIndex(w.text, "\n")
+			lastLine := w.text
+			lineIdx := 0
+			if lastIdx >= 0 {
+				lastLine = w.text[lastIdx+1:]
+				lineIdx = 1 + strings.Count(w.text[:lastIdx], "\n")
 			}
 
-			wBefore := uikit.MeasureStringPx(ctx.Theme.Font, ctx.Theme.FontPx, lastLine)
+			wBefore := t.Measure(lastLine).ImageRect().Dx()
+
 			cx := wBefore + w.CaretMarginPx
-			cy := (lastIdx * met.Height) - w.Scroll.ScrollY
+			cy := (lineIdx * lineH) - w.Scroll.ScrollY
 
 			if cx < 0 {
 				cx = 0
@@ -273,15 +318,14 @@ func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 				cx = maxX
 			}
 
-			if cy+met.Height > 0 && cy <= content.Dy() {
-				// IMPORTANT: SubImage keeps absolute coords -> add (ox,oy)
+			if cy+lineH > 0 && cy <= content.Dy() {
 				vector.DrawFilledRect(
 					sub,
 					float32(ox+cx),
 					float32(oy+cy),
 					float32(w.CaretWidthPx),
-					float32(met.Height),
-					ctx.Theme.Caret,
+					float32(lineH),
+					theme.CaretColor,
 					false,
 				)
 			}

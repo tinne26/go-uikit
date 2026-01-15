@@ -8,6 +8,7 @@ import (
 	"github.com/erparts/go-shapes"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/tinne26/etxt"
 )
 
 var shapesRenderer = shapes.NewRenderer()
@@ -51,14 +52,7 @@ func drawErrorText(ctx *Context, dst *ebiten.Image, r image.Rectangle, msg strin
 		return
 	}
 
-	met, _ := MetricsPx(ctx.Theme.Font, ctx.Theme.ErrorFontPx)
-	baselineY := r.Min.Y + met.Ascent
-
-	ctx.Text.SetAlign(0)
-	ctx.Text.SetSize(float64(ctx.Theme.ErrorFontPx))
-	ctx.Text.SetColor(ctx.Theme.ErrorText)
-	ctx.Text.Draw(dst, msg, r.Min.X, baselineY)
-
-	ctx.Text.SetSize(float64(ctx.Theme.FontPx))
-	ctx.Text.SetColor(ctx.Theme.Text)
+	t := ctx.Theme().ErrorText()
+	t.SetAlign(etxt.Left | etxt.Top)
+	t.Draw(dst, msg, r.Min.X, r.Min.Y)
 }
