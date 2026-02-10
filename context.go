@@ -21,8 +21,6 @@ type Context struct {
 }
 
 func NewContext(theme *Theme, root Layout, ime IMEBridge) *Context {
-	root.SetPadding(theme.SpaceL, theme.SpaceL)
-
 	return &Context{
 		theme:       theme,
 		ime:         ime,
