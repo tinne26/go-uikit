@@ -4,7 +4,6 @@ import (
 	"image"
 	"math"
 
-	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -51,7 +50,7 @@ func (s *Scroller) Update(ctx *Context, viewport image.Rectangle, contentH int) 
 	}
 
 	ptr := ctx.Pointer()
-	inside := common.Contains(viewport, ptr.X, ptr.Y)
+	inside := image.Pt(ptr.X, ptr.Y).In(viewport)
 
 	changed := false
 

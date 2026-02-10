@@ -1,7 +1,8 @@
 package uikit
 
 import (
-	"github.com/erparts/go-uikit/common"
+	"image"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
@@ -256,7 +257,7 @@ func (c *Context) widgetHit(w Widget, x, y int) bool {
 		return h.HitTest(c, x, y)
 	}
 
-	return common.Contains(w.Measure(false), x, y)
+	return image.Pt(x, y).In(w.Measure(false))
 }
 
 func (c *Context) topmostAt(x, y int) Widget {

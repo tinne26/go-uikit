@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/erparts/go-uikit"
-	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/tinne26/etxt"
 )
@@ -172,11 +171,12 @@ func (s *Select) listRect(ctx *uikit.Context) image.Rectangle {
 
 func (s *Select) HitTest(ctx *uikit.Context, x, y int) bool {
 	ctrl := s.Measure(false)
-	if common.Contains(ctrl, x, y) {
+	pt := image.Pt(x, y)
+	if pt.In(ctrl) {
 		return true
 	}
 	if s.open {
-		return common.Contains(s.listRect(ctx), x, y)
+		return pt.In(s.listRect(ctx))
 	}
 	return false
 }
@@ -192,20 +192,21 @@ func (s *Select) Update(ctx *uikit.Context) {
 		return
 	}
 
-	ptr := ctx.Pointer()
-	ctrlInside := common.Contains(r, ptr.X, ptr.Y)
+	ptrStatus := ctx.Pointer()
+	ptrXY := image.Pt(ptrStatus.X, ptrStatus.Y)
+	ctrlInside := ptrXY.In(r)
 
-	if !s.open && ptr.IsJustDown && ctrlInside {
+	if !s.open && ptrStatus.IsJustDown && ctrlInside {
 		s.open = true
 		s.ensureIndexVisible(s.index)
 		return
 	}
 
-	if s.open && ptr.IsJustDown {
+	if s.open && ptrStatus.IsJustDown {
 		list := s.listRect(ctx)
 
-		if common.Contains(list, ptr.X, ptr.Y) {
-			row := (ptr.Y - list.Min.Y) / ctx.Theme().ControlH
+		if ptrXY.In(list) {
+			row := (ptrXY.Y - list.Min.Y) / ctx.Theme().ControlH
 			idx := s.scroll + row
 			if idx >= 0 && idx < len(s.options) {
 				s.SetIndex(idx)
@@ -276,8 +277,8 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 		return
 	}
 
-	ptr := ctx.Pointer()
-
+	ptrStatus := ctx.Pointer()
+	ptrXY := image.Pt(ptrStatus.X, ptrStatus.Y)
 	for i := 0; i < visibleRows; i++ {
 		idx := s.scroll + i
 		if idx >= len(s.options) {
@@ -289,7 +290,7 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 
 		if idx == s.index {
 			s.Base.DrawRoundedRect(dst, row, 0, theme.SurfaceHoverColor)
-		} else if common.Contains(row, ptr.X, ptr.Y) {
+		} else if ptrXY.In(row) {
 			s.Base.DrawRoundedRect(dst, row, 0, theme.SurfaceHoverColor)
 		}
 
