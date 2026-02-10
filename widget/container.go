@@ -23,7 +23,7 @@ func NewContainer(theme *uikit.Theme) *Container {
 
 	w := &Container{}
 	w.Base = uikit.NewBase(cfg)
-	w.Base.HeightCaculator = func() int {
+	w.Base.HeightCalculator = func() int {
 		return w.height
 	}
 

@@ -33,7 +33,7 @@ type Base struct {
 	cfg   *WidgetBaseConfig
 	theme *Theme
 
-	HeightCaculator func() int
+	HeightCalculator func() int
 
 	rect image.Rectangle
 
@@ -62,8 +62,8 @@ func (b *Base) controlHeight(extended bool) int {
 	}
 
 	h := b.theme.ControlH
-	if b.HeightCaculator != nil {
-		h = b.HeightCaculator()
+	if b.HeightCalculator != nil {
+		h = b.HeightCalculator()
 	}
 
 	if ok, _ := b.IsInvalid(); ok && extended {
@@ -146,14 +146,14 @@ func (c *Base) Draw(ctx *Context, dst *ebiten.Image) image.Rectangle {
 	}
 
 	r := c.Measure(false)
-	c.DrawSurfece(ctx, dst, r)
+	c.DrawSurface(ctx, dst, r)
 	c.DrawBoder(ctx, dst, r)
 	c.DrawFocus(ctx, dst, r)
 	c.DrawInvalid(ctx, dst, r)
 	return r
 }
 
-func (c *Base) DrawSurfece(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
+func (c *Base) DrawSurface(ctx *Context, dst *ebiten.Image, r image.Rectangle) {
 	if !c.cfg.DrawSurface {
 		return
 	}

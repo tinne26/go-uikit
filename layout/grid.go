@@ -29,7 +29,7 @@ func NewGrid(theme *uikit.Theme) *Grid {
 
 	cfg := uikit.NewWidgetBaseConfig(theme)
 	l.Base = uikit.NewBase(cfg)
-	l.Base.HeightCaculator = func() int {
+	l.Base.HeightCalculator = func() int {
 		return l.height
 	}
 
