@@ -142,7 +142,7 @@ func (b *Base) SetVisible(v bool) { b.visible = v }
 
 func (c *Base) Draw(ctx *Context, dst *ebiten.Image) image.Rectangle {
 	if c.rect.Dy() == 0 {
-		c.SetFrame(c.rect.Min.X, c.rect.Min.Y, c.rect.Dy())
+		c.SetFrame(c.rect.Min.X, c.rect.Min.Y, c.rect.Dx())
 	}
 
 	r := c.Measure(false)
