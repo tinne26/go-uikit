@@ -233,7 +233,7 @@ func (c *Context) readPointerSnapshot() {
 		if _, ok := curr[c.ptr.TouchID]; ok {
 			c.ptr.IsDown = true
 			c.ptr.IsTouch = true
-			c.ptr.X, c.ptr.Y = ebiten.TouchPosition(c.ptr.TouchID)
+			c.ptr.Position.X, c.ptr.Position.Y = ebiten.TouchPosition(c.ptr.TouchID)
 		} else {
 			c.ptr.IsDown = false
 			c.ptr.IsTouch = true
@@ -244,28 +244,28 @@ func (c *Context) readPointerSnapshot() {
 		return
 	}
 
-	c.ptr.X, c.ptr.Y = ebiten.CursorPosition()
+	c.ptr.Position.X, c.ptr.Position.Y = ebiten.CursorPosition()
 	c.ptr.IsDown = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	c.ptr.IsJustDown = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	c.ptr.IsJustUp = inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
 }
 
-func (c *Context) widgetHit(w Widget, x, y int) bool {
+func (c *Context) widgetHit(w Widget, pos image.Point) bool {
 	if h, ok := any(w).(Hittable); ok {
-		return h.HitTest(c, x, y)
+		return h.HitTest(c, pos)
 	}
 
-	return image.Pt(x, y).In(w.Measure(false))
+	return pos.In(w.Measure(false))
 }
 
-func (c *Context) topmostAt(x, y int) Widget {
+func (c *Context) topmostAt(pos image.Point) Widget {
 	for i := len(c.widgets) - 1; i >= 0; i-- {
 		w := c.widgets[i]
 		if !w.IsVisible() || !w.IsEnabled() {
 			continue
 		}
 
-		if c.widgetHit(w, x, y) {
+		if c.widgetHit(w, pos) {
 			return w
 		}
 	}
@@ -287,23 +287,19 @@ func (c *Context) Update() {
 		}
 	}
 
+	var target Widget
 	if c.ptr.IsJustDown {
-		w := c.topmostAt(c.ptr.X, c.ptr.Y)
-		if w != nil && w.Focusable() && w.IsEnabled() {
-			c.SetFocus(w)
+		target = c.topmostAt(c.ptr.Position)
+		if target != nil && target.Focusable() && target.IsEnabled() {
+			c.SetFocus(target)
 		} else {
 			c.SetFocus(nil)
 		}
 	}
 
-	var target Widget
-	if c.ptr.IsJustDown {
-		target = c.topmostAt(c.ptr.X, c.ptr.Y)
-	}
-
 	var hoverTarget Widget
 	if !c.ptr.IsTouch {
-		hoverTarget = c.topmostAt(c.ptr.X, c.ptr.Y)
+		hoverTarget = c.topmostAt(c.ptr.Position)
 	}
 
 	for _, w := range c.widgets {
@@ -325,7 +321,7 @@ func (c *Context) Update() {
 			if wasPressed {
 				w.Dispatch(Event{Widget: w, Type: EventPointerUp, Pointer: c.ptr})
 
-				if w.IsEnabled() && c.widgetHit(w, c.ptr.X, c.ptr.Y) {
+				if w.IsEnabled() && c.widgetHit(w, c.ptr.Position) {
 					w.Dispatch(Event{Widget: w, Type: EventClick, Pointer: c.ptr})
 				}
 			}

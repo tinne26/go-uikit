@@ -192,21 +192,20 @@ func (s *Select) Update(ctx *uikit.Context) {
 		return
 	}
 
-	ptrStatus := ctx.Pointer()
-	ptrXY := image.Pt(ptrStatus.X, ptrStatus.Y)
-	ctrlInside := ptrXY.In(r)
+	ptr := ctx.Pointer()
+	ctrlInside := ptr.Position.In(r)
 
-	if !s.open && ptrStatus.IsJustDown && ctrlInside {
+	if !s.open && ptr.IsJustDown && ctrlInside {
 		s.open = true
 		s.ensureIndexVisible(s.index)
 		return
 	}
 
-	if s.open && ptrStatus.IsJustDown {
+	if s.open && ptr.IsJustDown {
 		list := s.listRect(ctx)
 
-		if ptrXY.In(list) {
-			row := (ptrXY.Y - list.Min.Y) / ctx.Theme().ControlH
+		if ptr.Position.In(list) {
+			row := (ptr.Position.Y - list.Min.Y) / ctx.Theme().ControlH
 			idx := s.scroll + row
 			if idx >= 0 && idx < len(s.options) {
 				s.SetIndex(idx)
@@ -277,8 +276,7 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 		return
 	}
 
-	ptrStatus := ctx.Pointer()
-	ptrXY := image.Pt(ptrStatus.X, ptrStatus.Y)
+	ptr := ctx.Pointer()
 	for i := 0; i < visibleRows; i++ {
 		idx := s.scroll + i
 		if idx >= len(s.options) {
@@ -290,7 +288,7 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 
 		if idx == s.index {
 			s.Base.DrawRoundedRect(dst, row, 0, theme.SurfaceHoverColor)
-		} else if ptrXY.In(row) {
+		} else if ptr.Position.In(row) {
 			s.Base.DrawRoundedRect(dst, row, 0, theme.SurfaceHoverColor)
 		}
 

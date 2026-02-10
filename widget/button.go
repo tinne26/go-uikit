@@ -1,8 +1,6 @@
 package widget
 
 import (
-	"image"
-
 	"github.com/erparts/go-uikit"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -59,7 +57,7 @@ func (w *Button) Update(ctx *uikit.Context) {
 	}
 
 	ptr := ctx.Pointer()
-	inside := image.Pt(ptr.X, ptr.Y).In(w.Measure(false))
+	inside := ptr.Position.In(w.Measure(false))
 
 	// Start press inside
 	if ptr.IsJustDown && inside {
