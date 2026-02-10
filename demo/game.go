@@ -58,6 +58,7 @@ func (g *Game) initOnce() {
 	g.theme = uikit.DefaultTheme()
 
 	root := layout.NewStack(g.theme)
+	root.SetPadding(g.theme.SpaceS, g.theme.SpaceS)
 	g.ctx = uikit.NewContext(g.theme, root, g.ime)
 	g.stack = layout.NewStack(g.theme)
 
