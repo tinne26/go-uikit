@@ -5,6 +5,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var _ uikit.Layout = (*Grid)(nil)
+
 // Grid places children in a fixed column grid. If height > 0 it becomes scrollable and clips via SubImage.
 type Grid struct {
 	uikit.Base

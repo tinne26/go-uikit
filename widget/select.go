@@ -14,6 +14,9 @@ type SelectOption struct {
 	Label string
 }
 
+var _ uikit.Widget = (*Select)(nil)
+var _ uikit.Hittable = (*Select)(nil)
+
 // Select is a simple dropdown selector.
 // The dropdown is rendered as an overlay (does NOT change layout of other widgets).
 type Select struct {
@@ -169,14 +172,13 @@ func (s *Select) listRect(ctx *uikit.Context) image.Rectangle {
 	return image.Rect(ctrl.Min.X, listY, ctrl.Max.X, listY+(n*ctx.Theme().ControlH))
 }
 
-func (s *Select) HitTest(ctx *uikit.Context, x, y int) bool {
+func (s *Select) HitTest(ctx *uikit.Context, pos image.Point) bool {
 	ctrl := s.Measure(false)
-	pt := image.Pt(x, y)
-	if pt.In(ctrl) {
+	if pos.In(ctrl) {
 		return true
 	}
 	if s.open {
-		return pt.In(s.listRect(ctx))
+		return pos.In(s.listRect(ctx))
 	}
 	return false
 }

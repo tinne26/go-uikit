@@ -12,6 +12,8 @@ import (
 	"github.com/tinne26/etxt"
 )
 
+var _ uikit.Widget = (*TextArea)(nil)
+
 // TextArea is a multi-line text editor with internal vertical scrolling.
 type TextArea struct {
 	uikit.Base

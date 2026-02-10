@@ -8,6 +8,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var _ uikit.Widget = (*Container)(nil)
+
 // Container is an empty widget that lets you render custom content inside a themed box.
 // It still participates in focus/invalid layout like any other widget.
 type Container struct {

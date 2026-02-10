@@ -7,6 +7,8 @@ import (
 	"github.com/tinne26/etxt"
 )
 
+var _ uikit.Widget = (*Button)(nil)
+
 // Button is a clickable control with hover/pressed/disabled visuals.
 // - Click triggers on pointer release inside the widget.
 // - Enter/Space triggers click when focused.

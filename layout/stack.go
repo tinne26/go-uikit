@@ -7,6 +7,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var _ uikit.Layout = (*Stack)(nil)
+
 // Stack places children vertically. If height > 0 it becomes scrollable and clips via SubImage.
 type Stack struct {
 	uikit.Base
