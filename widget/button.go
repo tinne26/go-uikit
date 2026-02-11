@@ -2,11 +2,12 @@ package widget
 
 import (
 	"github.com/erparts/go-uikit"
-	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/tinne26/etxt"
 )
+
+var _ uikit.Widget = (*Button)(nil)
 
 // Button is a clickable control with hover/pressed/disabled visuals.
 // - Click triggers on pointer release inside the widget.
@@ -58,7 +59,7 @@ func (w *Button) Update(ctx *uikit.Context) {
 	}
 
 	ptr := ctx.Pointer()
-	inside := common.Contains(w.Measure(false), ptr.X, ptr.Y)
+	inside := ptr.Position.In(w.Measure(false))
 
 	// Start press inside
 	if ptr.IsJustDown && inside {

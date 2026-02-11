@@ -6,6 +6,8 @@ import (
 	"github.com/tinne26/etxt"
 )
 
+var _ uikit.Widget = (*Label)(nil)
+
 type Label struct {
 	uikit.Base
 	text     string

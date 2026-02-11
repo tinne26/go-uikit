@@ -4,7 +4,6 @@ import (
 	"image"
 	"math"
 
-	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -51,7 +50,7 @@ func (s *Scroller) Update(ctx *Context, viewport image.Rectangle, contentH int) 
 	}
 
 	ptr := ctx.Pointer()
-	inside := common.Contains(viewport, ptr.X, ptr.Y)
+	inside := ptr.Position.In(viewport)
 
 	changed := false
 
@@ -69,14 +68,14 @@ func (s *Scroller) Update(ctx *Context, viewport image.Rectangle, contentH int) 
 	// Drag (mouse/touch)
 	if ptr.IsJustDown && inside {
 		s.dragging = true
-		s.lastPY = ptr.Y
+		s.lastPY = ptr.Position.Y
 		s.showTicks = 18
 	}
 
 	if s.dragging && ptr.IsJustDown {
-		dy := ptr.Y - s.lastPY
+		dy := ptr.Position.Y - s.lastPY
 		s.ScrollY -= dy
-		s.lastPY = ptr.Y
+		s.lastPY = ptr.Position.Y
 		if dy != 0 {
 			changed = true
 		}

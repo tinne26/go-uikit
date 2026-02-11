@@ -7,6 +7,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var _ uikit.Layout = (*Stack)(nil)
+
 // Stack places children vertically. If height > 0 it becomes scrollable and clips via SubImage.
 type Stack struct {
 	uikit.Base
@@ -31,7 +33,7 @@ func NewStack(theme *uikit.Theme) *Stack {
 	cfg := uikit.NewWidgetBaseConfig(theme)
 	l.Base = uikit.NewBase(cfg)
 	l.Base.SetEnabled(true)
-	l.Base.HeightCaculator = func() int {
+	l.Base.HeightCalculator = func() int {
 		if l.height == 0 {
 			return l.contentH
 		}
@@ -56,7 +58,7 @@ func (l *Stack) SetPadding(x, y int) {
 	l.padY = y
 }
 
-func (l *Stack) SeGap(v int) {
+func (l *Stack) SetGap(v int) {
 	l.gap = v
 }
 

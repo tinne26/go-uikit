@@ -8,6 +8,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var _ uikit.Widget = (*Container)(nil)
+
 // Container is an empty widget that lets you render custom content inside a themed box.
 // It still participates in focus/invalid layout like any other widget.
 type Container struct {
@@ -23,7 +25,7 @@ func NewContainer(theme *uikit.Theme) *Container {
 
 	w := &Container{}
 	w.Base = uikit.NewBase(cfg)
-	w.Base.HeightCaculator = func() int {
+	w.Base.HeightCalculator = func() int {
 		return w.height
 	}
 

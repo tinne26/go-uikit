@@ -12,6 +12,8 @@ import (
 	"github.com/tinne26/etxt"
 )
 
+var _ uikit.Widget = (*Checkbox)(nil)
+
 type Checkbox struct {
 	uikit.Base
 

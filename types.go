@@ -51,7 +51,7 @@ type TextWidget interface {
 
 // Hittable allows a widget to extend its clickable area beyond Base.ControlRect.
 type Hittable interface {
-	HitTest(ctx *Context, x, y int) bool
+	HitTest(ctx *Context, pos image.Point) bool
 }
 
 // Layout is a Widget that owns children.
@@ -67,7 +67,7 @@ type Layout interface {
 }
 
 type PointerStatus struct {
-	X, Y       int
+	Position   image.Point
 	IsDown     bool
 	IsJustDown bool
 	IsJustUp   bool

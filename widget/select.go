@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/erparts/go-uikit"
-	"github.com/erparts/go-uikit/common"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/tinne26/etxt"
 )
@@ -14,6 +13,9 @@ type SelectOption struct {
 	Value any
 	Label string
 }
+
+var _ uikit.Widget = (*Select)(nil)
+var _ uikit.Hittable = (*Select)(nil)
 
 // Select is a simple dropdown selector.
 // The dropdown is rendered as an overlay (does NOT change layout of other widgets).
@@ -170,13 +172,13 @@ func (s *Select) listRect(ctx *uikit.Context) image.Rectangle {
 	return image.Rect(ctrl.Min.X, listY, ctrl.Max.X, listY+(n*ctx.Theme().ControlH))
 }
 
-func (s *Select) HitTest(ctx *uikit.Context, x, y int) bool {
+func (s *Select) HitTest(ctx *uikit.Context, pos image.Point) bool {
 	ctrl := s.Measure(false)
-	if common.Contains(ctrl, x, y) {
+	if pos.In(ctrl) {
 		return true
 	}
 	if s.open {
-		return common.Contains(s.listRect(ctx), x, y)
+		return pos.In(s.listRect(ctx))
 	}
 	return false
 }
@@ -193,7 +195,7 @@ func (s *Select) Update(ctx *uikit.Context) {
 	}
 
 	ptr := ctx.Pointer()
-	ctrlInside := common.Contains(r, ptr.X, ptr.Y)
+	ctrlInside := ptr.Position.In(r)
 
 	if !s.open && ptr.IsJustDown && ctrlInside {
 		s.open = true
@@ -204,8 +206,8 @@ func (s *Select) Update(ctx *uikit.Context) {
 	if s.open && ptr.IsJustDown {
 		list := s.listRect(ctx)
 
-		if common.Contains(list, ptr.X, ptr.Y) {
-			row := (ptr.Y - list.Min.Y) / ctx.Theme().ControlH
+		if ptr.Position.In(list) {
+			row := (ptr.Position.Y - list.Min.Y) / ctx.Theme().ControlH
 			idx := s.scroll + row
 			if idx >= 0 && idx < len(s.options) {
 				s.SetIndex(idx)
@@ -277,7 +279,6 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 	}
 
 	ptr := ctx.Pointer()
-
 	for i := 0; i < visibleRows; i++ {
 		idx := s.scroll + i
 		if idx >= len(s.options) {
@@ -289,7 +290,7 @@ func (s *Select) DrawOverlay(ctx *uikit.Context, dst *ebiten.Image) {
 
 		if idx == s.index {
 			s.Base.DrawRoundedRect(dst, row, 0, theme.SurfaceHoverColor)
-		} else if common.Contains(row, ptr.X, ptr.Y) {
+		} else if ptr.Position.In(row) {
 			s.Base.DrawRoundedRect(dst, row, 0, theme.SurfaceHoverColor)
 		}
 

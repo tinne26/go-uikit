@@ -12,6 +12,8 @@ import (
 	"github.com/tinne26/etxt"
 )
 
+var _ uikit.Widget = (*TextArea)(nil)
+
 // TextArea is a multi-line text editor with internal vertical scrolling.
 type TextArea struct {
 	uikit.Base
@@ -48,7 +50,7 @@ func NewTextArea(theme *uikit.Theme, placeholder string) *TextArea {
 	w.Scroll = uikit.NewScroller()
 	w.Scroll.Scrollbar = uikit.ScrollbarAlways
 
-	w.Base.HeightCaculator = w.calculateHeight
+	w.Base.HeightCalculator = w.calculateHeight
 	return w
 }
 
@@ -232,7 +234,7 @@ func (w *TextArea) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	content := common.Inset(r, theme.PadX, theme.PadY)
 
 	// Base visuals
-	w.DrawSurfece(ctx, dst, r)
+	w.DrawSurface(ctx, dst, r)
 	w.DrawBoder(ctx, dst, r)
 	w.DrawFocus(ctx, dst, r)
 

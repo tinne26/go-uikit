@@ -12,6 +12,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
+var _ uikit.Widget = (*TextInput)(nil)
+
 // TextInput is a single-line input box (no label).
 // Height and proportions come from Theme; external layout controls only width.
 type TextInput struct {
