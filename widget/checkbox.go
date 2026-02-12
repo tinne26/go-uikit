@@ -19,21 +19,28 @@ type Checkbox struct {
 
 	label   string
 	checked bool
+
+	lastHeight int
+	refWidth   int
 }
 
 func NewCheckbox(theme *uikit.Theme, label string) *Checkbox {
 	cfg := uikit.NewWidgetBaseConfig(theme)
 
 	w := &Checkbox{
+		Base:  uikit.NewBase(cfg),
 		label: label,
 	}
-
-	w.Base = uikit.NewBase(cfg)
+	w.Base.HeightCalculator = w.heightCalculator
 
 	// Clicking anywhere on the widget triggers toggle (Base must emit EventClick).
 	w.Base.On(uikit.EventClick, w.onClick, false)
 
 	return w
+}
+
+func (w *Checkbox) heightCalculator() int {
+	return w.lastHeight
 }
 
 func (w *Checkbox) Focusable() bool { return true }
@@ -66,6 +73,15 @@ func (w *Checkbox) Update(ctx *uikit.Context) {
 		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
 	}
 
+	if w.refWidth != r.Dx() {
+		w.refWidth = r.Dx()
+		boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(ctx)
+		maxLineLen := max(w.refWidth-(boxSize+boxHorzIntsp+padX*2), 0)
+		theme := ctx.Theme()
+		w.lastHeight = theme.Text().MeasureWithWrap(w.label, maxLineLen).IntHeight()
+		w.lastHeight = max(w.lastHeight+padY*2, theme.ControlH)
+	}
+
 	if !w.IsEnabled() {
 		return
 	}
@@ -82,14 +98,8 @@ func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	theme := ctx.Theme()
 	r := w.Measure(false)
 
-	content := common.Inset(r, theme.PadX, theme.PadY)
-
-	// Checkbox square size
-	boxSize := theme.CheckSize
-	if boxSize < 12 {
-		boxSize = 12
-	}
-
+	boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(ctx)
+	content := common.Inset(r, padX, padY)
 	boxY := r.Min.Y + (r.Dy()-boxSize)/2
 	box := image.Rect(content.Min.X, boxY, content.Min.X+boxSize, boxY+boxSize)
 
@@ -142,10 +152,18 @@ func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 		vector.StrokeLine(dst, x2, y2, x3, y3, strokeW, checkCol, true)
 	}
 
-	tx := box.Max.X + theme.SpaceS
-
 	t := theme.Text()
 	t.SetColor(textCol)
 	t.SetAlign(etxt.Left | etxt.VertCenter)
-	t.Draw(dst, w.label, tx, r.Min.Y+r.Dy()/2)
+	maxLineLen := max(r.Dx()-(boxSize+boxHorzIntsp+padX*2), 0)
+	t.DrawWithWrap(dst, w.label, box.Max.X+boxHorzIntsp, r.Min.Y+r.Dy()/2, maxLineLen)
+}
+
+func (w *Checkbox) boxMetrics(ctx *uikit.Context) (size, horzInterspace, padX, padY int) {
+	theme := ctx.Theme()
+	boxSize := theme.CheckSize
+	if boxSize < 12 {
+		boxSize = 12
+	}
+	return boxSize, theme.SpaceS, theme.PadX, theme.PadY
 }
