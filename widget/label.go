@@ -23,20 +23,18 @@ func NewLabel(theme *uikit.Theme, text string) *Label {
 	cfg.DrawSurface = false
 	cfg.DrawBorder = false
 
-	base := uikit.NewBase(cfg)
-
 	w := &Label{
-		Base:     base,
+		Base:     uikit.NewBase(cfg),
 		text:     text,
 		refWidth: -1,
 	}
-	base.HeightCalculator = w.heightCalculator
+	w.Base.HeightCalculator = w.heightCalculator
 
 	return w
 }
 
 func (w *Label) heightCalculator() int {
-	return max(w.lastHeight, w.Theme().ControlH)
+	return w.lastHeight
 }
 
 func (w *Label) Focusable() bool {
@@ -75,7 +73,8 @@ func (w *Label) Update(ctx *uikit.Context) {
 
 	if w.refWidth != r.Dx() {
 		w.refWidth = r.Dx()
-		w.lastHeight = w.textRenderer(ctx.Theme()).MeasureWithWrap(w.text, w.refWidth).IntHeight()
+		renderer := w.textRenderer(ctx.Theme())
+		w.lastHeight = renderer.MeasureWithWrap(w.text, w.refWidth).IntHeight()
 	}
 }
 
