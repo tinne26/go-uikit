@@ -70,10 +70,10 @@ func (t *Theme) Text() *etxt.Renderer {
 		r := etxt.NewRenderer()
 		r.Utils().SetCache8MiB()
 		r.Glyph().SetMissHandler(etxt.OnMissNotdef)
-		r.SetFont(t.Font)
 		t.renderer = r
 	}
 
+	t.renderer.SetFont(t.Font)
 	t.renderer.SetSize(float64(t.FontPx))
 	t.renderer.SetColor(t.TextColor)
 	t.renderer.SetAlign(etxt.Left | etxt.VertCenter)
