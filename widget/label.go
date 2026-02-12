@@ -10,8 +10,12 @@ var _ uikit.Widget = (*Label)(nil)
 
 type Label struct {
 	uikit.Base
-	text     string
-	textFunc func() string
+	text      string
+	textFunc  func() string
+	modifiers []TextModifier
+
+	lastHeight int
+	refWidth   int
 }
 
 func NewLabel(theme *uikit.Theme, text string) *Label {
@@ -21,10 +25,18 @@ func NewLabel(theme *uikit.Theme, text string) *Label {
 
 	base := uikit.NewBase(cfg)
 
-	return &Label{
-		Base: base,
-		text: text,
+	w := &Label{
+		Base:     base,
+		text:     text,
+		refWidth: -1,
 	}
+	base.HeightCalculator = w.heightCalculator
+
+	return w
+}
+
+func (w *Label) heightCalculator() int {
+	return max(w.lastHeight, w.Theme().ControlH)
 }
 
 func (w *Label) Focusable() bool {
@@ -32,19 +44,19 @@ func (w *Label) Focusable() bool {
 }
 
 func (w *Label) SetText(s string) {
-	w.text = s
+	if w.text != s {
+		w.text = s
+		w.refWidth = -1
+	}
 }
 
 func (w *Label) SetTextFunc(fn func() string) {
 	w.textFunc = fn
 }
 
-func (w *Label) currentText() string {
-	if w.textFunc != nil {
-		return w.textFunc()
-	}
-
-	return w.text
+func (w *Label) SetTextModifiers(mods ...TextModifier) {
+	w.modifiers = mods
+	w.refWidth = -1
 }
 
 func (w *Label) Update(ctx *uikit.Context) {
@@ -52,13 +64,36 @@ func (w *Label) Update(ctx *uikit.Context) {
 	if r.Dy() == 0 {
 		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
 	}
+
+	if w.textFunc != nil {
+		text := w.textFunc()
+		if text != w.text {
+			w.text = text
+			w.refWidth = -1
+		}
+	}
+
+	if w.refWidth != r.Dx() {
+		w.refWidth = r.Dx()
+		w.lastHeight = w.textRenderer(ctx.Theme()).MeasureWithWrap(w.text, w.refWidth).IntHeight()
+	}
 }
 
 func (w *Label) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	r := w.Base.Draw(ctx, dst)
 
-	ctx.Theme().Text().SetColor(ctx.Theme().MutedTextColor)
-	ctx.Theme().Text().SetAlign(etxt.Left | etxt.VertCenter)
+	renderer := w.textRenderer(ctx.Theme())
+	x := renderer.GetAlign().Horz().GetHorzAnchor(r.Min.X, r.Max.X)
 
-	ctx.Theme().Text().Draw(dst, w.currentText(), r.Min.X, r.Min.Y+(r.Dy()/2))
+	renderer.DrawWithWrap(dst, w.text, x, r.Min.Y+(r.Dy()/2), r.Dx())
+}
+
+func (w *Label) textRenderer(theme *uikit.Theme) *etxt.Renderer {
+	renderer := theme.Text()
+	renderer.SetColor(theme.TextColor)
+	renderer.SetAlign(etxt.Left | etxt.VertCenter)
+	for _, mod := range w.modifiers {
+		mod(theme, renderer)
+	}
+	return renderer
 }
