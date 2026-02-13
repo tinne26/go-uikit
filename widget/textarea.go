@@ -95,12 +95,6 @@ func (w *TextArea) setTextInternal(s string) {
 }
 
 func (w *TextArea) Update(ctx *uikit.Context) {
-	r := w.Measure(false)
-	if r.Dx() > 0 && r.Dy() == 0 {
-		// Correct: SetFrame expects width (Dx), not Max.X
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
 	focused := w.IsFocused()
 	enabled := w.IsEnabled()
 
@@ -111,7 +105,7 @@ func (w *TextArea) Update(ctx *uikit.Context) {
 	}
 
 	theme := ctx.Theme()
-	content := common.Inset(r, theme.PadX, theme.PadY)
+	content := common.Inset(w.Measure(false), theme.PadX, theme.PadY)
 
 	// Only line-height is needed for scroll math.
 	t := theme.Text()

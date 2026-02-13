@@ -41,13 +41,9 @@ func (w *Container) Focusable() bool {
 }
 
 func (w *Container) Update(ctx *uikit.Context) {
-	r := w.Measure(false)
-	if r.Dy() == 0 {
-		w.SetFrame(r.Min.X, r.Min.Y, r.Dx())
-	}
-
 	if w.OnUpdate != nil {
-		w.OnUpdate(ctx, common.Inset(w.Measure(false), ctx.Theme().PadX, ctx.Theme().PadY))
+		theme := ctx.Theme()
+		w.OnUpdate(ctx, common.Inset(w.Measure(false), theme.PadX, theme.PadY))
 	}
 }
 
