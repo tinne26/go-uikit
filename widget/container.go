@@ -57,6 +57,5 @@ func (w *Container) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	content := common.Inset(r, ctx.Theme().PadX, ctx.Theme().PadY)
 	if w.OnDraw != nil {
 		w.OnDraw(ctx, dst.SubImage(content).(*ebiten.Image))
-
 	}
 }

@@ -93,14 +93,13 @@ func (w *Checkbox) Update(ctx *uikit.Context) {
 }
 
 func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
-	w.Base.Draw(ctx, dst)
+	r := w.Base.Draw(ctx, dst)
+	dr := r.Sub(dst.Bounds().Min)
 
 	theme := ctx.Theme()
-	r := w.Measure(false)
-
 	boxSize, boxHorzIntsp, padX, padY := w.boxMetrics(ctx)
-	content := common.Inset(r, padX, padY)
-	boxY := r.Min.Y + (r.Dy()-boxSize)/2
+	content := common.Inset(dr, padX, padY)
+	boxY := dr.Min.Y + (dr.Dy()-boxSize)/2
 	box := image.Rect(content.Min.X, boxY, content.Min.X+boxSize, boxY+boxSize)
 
 	// Colors
@@ -132,12 +131,13 @@ func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	w.Base.DrawRoundedBorder(dst, box, radius, theme.BorderW, border)
 
 	if w.checked {
-		x1 := float32(box.Min.X) + float32(boxSize)*0.22
-		y1 := float32(box.Min.Y) + float32(boxSize)*0.55
-		x2 := float32(box.Min.X) + float32(boxSize)*0.42
-		y2 := float32(box.Min.Y) + float32(boxSize)*0.73
-		x3 := float32(box.Min.X) + float32(boxSize)*0.78
-		y3 := float32(box.Min.Y) + float32(boxSize)*0.30
+		boxMin := r.Min.Add(image.Pt(padX, padY))
+		x1 := float32(boxMin.X) + float32(boxSize)*0.22
+		y1 := float32(boxMin.Y) + float32(boxSize)*0.55
+		x2 := float32(boxMin.X) + float32(boxSize)*0.42
+		y2 := float32(boxMin.Y) + float32(boxSize)*0.73
+		x3 := float32(boxMin.X) + float32(boxSize)*0.78
+		y3 := float32(boxMin.Y) + float32(boxSize)*0.30
 
 		strokeW := float32(theme.BorderW)
 		if strokeW < 2 {
@@ -155,8 +155,9 @@ func (w *Checkbox) Draw(ctx *uikit.Context, dst *ebiten.Image) {
 	t := theme.Text()
 	t.SetColor(textCol)
 	t.SetAlign(etxt.Left | etxt.VertCenter)
-	maxLineLen := max(r.Dx()-(boxSize+boxHorzIntsp+padX*2), 0)
-	t.DrawWithWrap(dst, w.label, box.Max.X+boxHorzIntsp, r.Min.Y+r.Dy()/2, maxLineLen)
+	leftOffset := boxSize + boxHorzIntsp + padX
+	maxLineLen := max(r.Dx()-(leftOffset+padX), 0)
+	t.DrawWithWrap(dst, w.label, r.Min.X+leftOffset, r.Min.Y+r.Dy()/2, maxLineLen)
 }
 
 func (w *Checkbox) boxMetrics(ctx *uikit.Context) (size, horzInterspace, padX, padY int) {
